@@ -1,7 +1,11 @@
 import math
-from rules import MATERIALS, check_table11, format_tu_name
+from rules import MATERIALS, TK_MAX_SHELL_P, check_table11, format_tu_name
 
-def lmtd_ft(t1i, t1o, t2i, t2o, z):
+def lmtd_ft(t1i, t1o, t2i, t2o, z, flow="counter"):
+    if flow == "co":
+        dtb, dtm = max(t1i - t2i, 1e-6), max(t1o - t2o, 1e-6)
+        lmtd = dtb if abs(dtb - dtm) < 1e-4 else (dtb - dtm) / math.log(dtb / dtm)
+        return lmtd, 1.0
     dtb, dtm = max(t1i - t2o, 1e-6), max(t1o - t2i, 1e-6)
     lmtd = dtb if abs(dtb - dtm) < 1e-4 else (dtb - dtm) / math.log(dtb / dtm)
     if z == 1: return lmtd, 1.0
@@ -12,26 +16,13 @@ def lmtd_ft(t1i, t1o, t2i, t2o, z):
     den = math.log((2.0 - P * (1.0 + R - eta)) / (2.0 - P * (1.0 + R + eta)))
     return lmtd, max(0.0, min(1.0, (eta / dlt) / den if den > 0 else 0.0))
 
-def solve_unit(u, p, bal, rating_mode=False):
+def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
     if p["hot_side"] == "tube":
-        Gt, tti, tto, rhot, cpt, mut, kt, rft = bal["G1"],bal["t1_in"],bal["t1_out"],p["rho1"],p["cp1"],p["mu1"],p["k1"],p["rf1"]
-        Gs, tsi, tso, rhos, cps, mus, ks, rfs = bal["G2"],bal["t2_in"],bal["t2_out"],p["rho2"],p["cp2"],p["mu2"],p["k2"],p["rf2"]
+        Gt, tti, tto, rhot, cpt, mut, kt, rft = G1, t1i, t1o, p["rho1"], p["cp1"], p["mu1"], p["k1"], p["rf1"]
+        Gs, tsi, tso, rhos, cps, mus, ks, rfs = G2, t2i, t2o, p["rho2"], p["cp2"], p["mu2"], p["k2"], p["rf2"]
     else:
-        Gs, tsi, tso, rhos, cps, mus, ks, rfs = bal["G1"],bal["t1_in"],bal["t1_out"],p["rho1"],p["cp1"],p["mu1"],p["k1"],p["rf1"]
-        Gt, tti, tto, rhot, cpt, mut, kt, rft = bal["G2"],bal["t2_in"],bal["t2_out"],p["rho2"],p["cp2"],p["mu2"],p["k2"],p["rf2"]
-
-    p_req = max(p["p_des_t"], p["p_des_s"])
-    valid_pys = [py for py in u["pys"] if py >= p_req - 1e-6]
-    if not valid_pys:
-        if not rating_mode: return None
-        Py = max(u["pys"])
-    else:
-        Py = next(iter(valid_pys))
-
-    Q = bal["Q_kw"] * 1000.0
-    lmtd, ft = lmtd_ft(bal["t1_in"], bal["t1_out"], bal["t2_in"], bal["t2_out"], u["z"])
-    if ft < 0.75 and not rating_mode: return None
-    ft = max(ft, 0.5)
+        Gs, tsi, tso, rhos, cps, mus, ks, rfs = G1, t1i, t1o, p["rho1"], p["cp1"], p["mu1"], p["k1"], p["rf1"]
+        Gt, tti, tto, rhot, cpt, mut, kt, rft = G2, t2i, t2o, p["rho2"], p["cp2"], p["mu2"], p["k2"], p["rf2"]
 
     dout, din, L, z = u["dt"] / 1000.0, (u["dt"] - 2 * u["w"]) / 1000.0, u["L"], u["z"]
     wt = Gt / (rhot * u["At"])
@@ -71,6 +62,25 @@ def solve_unit(u, p, bal, rating_mode=False):
 
     _, k_wall, _ = MATERIALS.get(p["mat"], ("", 45.0, 1.0))
     K = 1.0 / (1.0 / as_ + (u["w"] / 1000.0) / k_wall + rft + rfs + (1.0 / at) * (dout / din))
+    return K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso
+
+def solve_unit(u, p, bal, rating_mode=False):
+    flow = p.get("flow_type", "counter")
+    if flow == "co" and u["z"] > 1 and not rating_mode:
+        return None
+    p_req = max(p["p_des_t"], p["p_des_s"])
+    valid_pys = [py for py in u["pys"] if py >= p_req - 1e-6]
+    if not valid_pys and not rating_mode: return None
+    Py = next(iter(valid_pys)) if valid_pys else max(u["pys"])
+
+    Q = bal["Q_kw"] * 1000.0
+    lmtd, ft = lmtd_ft(bal["t1_in"], bal["t1_out"], bal["t2_in"], bal["t2_out"], u["z"], flow)
+    if ft < 0.75 and not rating_mode: return None
+    ft = max(ft, 0.5)
+
+    K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso = calc_hydraulics_and_k(
+        u, p, bal["G1"], bal["t1_in"], bal["t1_out"], bal["G2"], bal["t2_in"], bal["t2_out"]
+    )
     Freq = Q / (K * lmtd * ft)
     mrg = (u["F"] - Freq) / Freq * 100.0
 
@@ -81,28 +91,66 @@ def solve_unit(u, p, bal, rating_mode=False):
     tm_t, tm_s = 0.5 * (tti + tto), 0.5 * (tsi + tso)
     q_flux = K * lmtd * ft
     t_tube_wall = tm_t - q_flux / at if tm_t > tm_s else tm_t + q_flux / at
-    t_shell_wall = tm_s
-    ok_t11, dt_allow, dt_act = check_table11(u["D"], Py, p["mat"], t_tube_wall, t_shell_wall)
+    ok_t11, dt_allow, dt_act = check_table11(u["D"], Py, p["mat"], t_tube_wall, tm_s)
 
-    req_type = p["unit_type"]
-    warn = ""
-    if req_type == "AUTO_T":
-        chosen_type = "ТН" if ok_t11 else "ТК"
-    elif req_type == "AUTO_X":
-        chosen_type = "ХН" if ok_t11 else "ХК"
+    req_type, warn = p["unit_type"], ""
+    if req_type in ("AUTO_T", "AUTO_X"):
+        base_n, base_k = ("ТН", "ТК") if req_type == "AUTO_T" else ("ХН", "ХК")
+        if ok_t11:
+            chosen_type = base_n
+        elif p["p_des_s"] <= TK_MAX_SHELL_P + 1e-6:
+            chosen_type = base_k
+        else:
+            chosen_type = base_k
+            warn = f"⚠ Δt_ст={dt_act}°C > доп. и P_корп={p['p_des_s']} > {TK_MAX_SHELL_P} МПа: нужен ТП (плав. головка)!"
     else:
         chosen_type = req_type
         if chosen_type in ("ТН", "ХН") and not ok_t11:
-            warn = f"⚠ Δt_ст={dt_act}°C > доп.{dt_allow}°C (нужен ТК/ХК)"
+            warn = f"⚠ Δt_ст={dt_act}°C > доп.{dt_allow}°C (нужен ТК/ХК или ТП)"
+        if chosen_type in ("ТК", "ХК") and p["p_des_s"] > TK_MAX_SHELL_P + 1e-6:
+            warn = f"⚠ Для ТК/ХК макс P_корп={TK_MAX_SHELL_P} МПа (требуется ТП)"
+
+    if flow == "co" and u["z"] > 1:
+        warn = "⚠ Прямоток возможен только для 1-ходовых (z=1) аппаратов"
     if chosen_type not in u["types"]:
         if not rating_mode: return None
         warn = f"⚠ Типоразмер не входит в ТУ для {chosen_type}"
     if chosen_type in ("ТК", "ХК") and p["orient"] == "В":
-        warn = "⚠ Аппараты с линз. компенсатором (ТК/ХК) по ТУ только горизонтальные (Г)"
+        warn = "⚠ ТК/ХК по ТУ только горизонтальные (Г)"
     if not valid_pys:
         warn = f"⚠ P_расч={p_req} МПа > макс Py={Py} МПа"
 
-    model = format_tu_name(u["D"], chosen_type, p["orient"], Py, p["mat"], u["dt"], L, z, p["climate"], max(tsi, tso))
+    model = format_tu_name(u["D"], chosen_type, p["orient"], Py, p["mat"], u["dt"], u["L"], u["z"], p["climate"], max(tsi, tso))
     return dict(model=model, F_cat=u["F"], F_req=round(Freq, 2), margin=round(mrg, 1), K=round(K, 1),
                 alpha_t=round(at, 0), alpha_s=round(as_, 0), wt=round(wt, 2), ws=round(ws, 2),
                 dp_t=round(dpt / 1000.0, 2), dp_s=round(dps / 1000.0, 2), dt_wall=f"{dt_act}/{dt_allow}", warn=warn)
+
+def simulate_unit(u, p):
+    flow = p.get("flow_type", "counter")
+    G1, t1i, G2, t2i = float(p["G1"]), float(p["t1_in"]), float(p["G2"]), float(p["t2_in"])
+    C1, C2 = G1 * float(p["cp1"]), G2 * float(p["cp2"])
+    Cmin, Cmax = min(C1, C2), max(C1, C2)
+    Cr = Cmin / Cmax
+    t1o, t2o = t1i - 0.5 * (t1i - t2i) * (Cmin / C1), t2i + 0.5 * (t1i - t2i) * (Cmin / C2)
+
+    for _ in range(15):
+        K, at, as_, wt, ws, dpt, dps, _, _, _, _ = calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o)
+        _, ft = lmtd_ft(t1i, t1o, t2i, t2o, u["z"], flow)
+        ft = max(ft, 0.6)
+        ntu = (K * u["F"] * ft) / Cmin
+        if flow == "co":
+            eps = (1.0 - math.exp(-ntu * (1.0 + Cr))) / (1.0 + Cr)
+        elif abs(1.0 - Cr) < 1e-4:
+            eps = ntu / (1.0 + ntu)
+        else:
+            e_term = math.exp(-ntu * (1.0 - Cr))
+            eps = (1.0 - e_term) / (1.0 - Cr * e_term)
+        Q = eps * Cmin * (t1i - t2i)
+        t1o, t2o = t1i - Q / C1, t2i + Q / C2
+
+    bal = dict(Q_kw=round(Q/1000.0, 3), G1=G1, t1_in=round(t1i, 2), t1_out=round(t1o, 2),
+               G2=G2, t2_in=round(t2i, 2), t2_out=round(t2o, 2))
+    res = solve_unit(u, p, bal, rating_mode=True)
+    res["margin"] = 0.0
+    res["F_req"] = u["F"]
+    return bal, res

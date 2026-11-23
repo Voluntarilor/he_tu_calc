@@ -7,6 +7,7 @@ def solve_balance(p):
     if known < 5:
         return None, f"Недостаточно данных: введено {known} из 7 параметров баланса (нужно минимум 5)."
     cp1, cp2 = float(p["cp1"]), float(p["cp2"])
+    flow = p.get("flow_type", "counter")
     Q = None if v["Q_kw"] is None else v["Q_kw"] * 1000.0
     G1, t1i, t1o, G2, t2i, t2o = v["G1"], v["t1_in"], v["t1_out"], v["G2"], v["t2_in"], v["t2_out"]
 
@@ -28,23 +29,33 @@ def solve_balance(p):
     q1, q2 = G1 * cp1 * (t1i - t1o), G2 * cp2 * (t2o - t2i)
     if abs(q1 - q2) / max(Q, 1.0) > 0.02:
         return None, f"Невязка баланса > 2%: Q1={q1/1000:.2f} кВт, Q2={q2/1000:.2f} кВт, Q={Q/1000:.2f} кВт."
-    if t1i <= t2o or t1o <= t2i:
-        return None, f"Температурный пересек: t1=({t1i:.1f}->{t1o:.1f}°C), t2=({t2i:.1f}->{t2o:.1f}°C)."
+
+    if flow == "co":
+        if t1i <= t2i or t1o <= t2o:
+            return None, f"Температурный пересек при прямотоке: выход горячего ({t1o:.1f}°C) <= выхода холодного ({t2o:.1f}°C)."
+    else:
+        if t1i <= t2o or t1o <= t2i:
+            return None, f"Температурный пересек при противотоке: t1=({t1i:.1f}->{t1o:.1f}°C), t2=({t2i:.1f}->{t2o:.1f}°C)."
 
     Ch, Cc = G1 * cp1, G2 * cp2
-    pts_tx, pts_tq = [], []
+    pts_tx = []
     for i in range(41):
         xi = i / 40.0
-        if abs(Ch - Cc) / max(Ch, Cc) < 1e-4:
-            Th, Tc = t1i - (t1i - t1o) * xi, t2o - (t2o - t2i) * xi
-        else:
+        if flow == "co":
             r = Ch / Cc
-            ntu_h = math.log((t1i - t2o) / (t1o - t2i)) / (1.0 - r)
-            Th = t1i - (t1i - t2i) * (1.0 - math.exp(-ntu_h * (1.0 - r) * xi)) / (1.0 - r * math.exp(-ntu_h * (1.0 - r)))
-            Tc = t2o - r * (t1i - Th)
+            ntu_h = math.log((t1i - t2i) / (t1o - t2o)) / (1.0 + r)
+            Th = t1i - (t1i - t2i) * (1.0 - math.exp(-ntu_h * (1.0 + r) * xi)) / (1.0 + r)
+            Tc = t2i + r * (t1i - Th)
+        else:
+            if abs(Ch - Cc) / max(Ch, Cc) < 1e-4:
+                Th, Tc = t1i - (t1i - t1o) * xi, t2o - (t2o - t2i) * xi
+            else:
+                r = Ch / Cc
+                ntu_h = math.log((t1i - t2o) / (t1o - t2i)) / (1.0 - r)
+                Th = t1i - (t1i - t2i) * (1.0 - math.exp(-ntu_h * (1.0 - r) * xi)) / (1.0 - r * math.exp(-ntu_h * (1.0 - r)))
+                Tc = t2o - r * (t1i - Th)
         pts_tx.append([round(xi, 3), round(Th, 2), round(Tc, 2)])
-        pts_tq.append([round((Q / 1000.0) * xi, 2), round(t1i - (t1i - t1o) * xi, 2), round(t2o - (t2o - t2i) * xi, 2)])
 
     return dict(Q_kw=round(Q/1000.0, 3), G1=round(G1, 4), t1_in=round(t1i, 2), t1_out=round(t1o, 2),
                 G2=round(G2, 4), t2_in=round(t2i, 2), t2_out=round(t2o, 2),
-                Ch=round(Ch/1000.0, 2), Cc=round(Cc/1000.0, 2), tx=pts_tx, tq=pts_tq), None
+                flow_type=flow, tx=pts_tx), None

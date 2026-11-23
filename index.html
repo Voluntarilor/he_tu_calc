@@ -1,64 +1,64 @@
 <!doctype html><html><head><meta charset="utf-8"><title>ТУ 3612-024-00220302-02</title>
 <style>
 body{font-family:sans-serif;margin:14px;background:#e9edf2;font-size:12px}
-.top{display:grid;grid-template-columns:1fr 1fr 300px;gap:10px}
+.top,.mid{display:grid;grid-template-columns:1fr 1fr 310px;gap:10px;margin-bottom:8px}
 .hot{background:#e5534b;color:#fff;padding:10px;border-radius:6px}
 .cold{background:#2b6cb0;color:#fff;padding:10px;border-radius:6px}
 .mech{background:#6c757d;color:#fff;padding:10px;border-radius:6px}
-.mid{display:grid;grid-template-columns:1fr 1fr 300px;gap:10px;margin-top:8px}
 .box{background:#fff;padding:8px;border-radius:6px;border:1px solid #ccc}
-.row{display:grid;grid-template-columns:115px 1fr 78px 22px;gap:4px;align-items:center;margin-bottom:5px}
+.row{display:grid;grid-template-columns:110px 1fr 76px 22px;gap:4px;align-items:center;margin-bottom:5px}
 .row2{display:grid;grid-template-columns:125px 1fr;gap:5px;align-items:center;margin-bottom:5px}
 input,select{padding:4px;border:1px solid #bbb;border-radius:3px;font-size:12px;width:100%;box-sizing:border-box}
 .clr{background:#b00020;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-weight:bold;padding:0}
-button.act{padding:8px 14px;background:#0b5ed7;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;margin-top:8px}
+button.act{padding:8px 14px;background:#0b5ed7;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold}
 .err{color:#b00020;background:#fdecea;padding:8px;margin-top:8px;font-weight:bold;border-radius:4px}
 .warn{color:#b00020;font-weight:bold}
 table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;font-size:12px}
-th,td{padding:5px;border:1px solid #ccc;text-align:right}
-th{background:#dde4ec}td:first-child,th:first-child{text-align:left}
+th,td{padding:5px;border:1px solid #ccc;text-align:right}th{background:#dde4ec}td:first-child,th:first-child{text-align:left}
+.modal{display:none;position:fixed;inset:0;background:#0007;align-items:center;justify-content:center;z-index:99}
+.mwin{background:#d4d0c8;border:2px solid #404040;width:620px;padding:12px;box-shadow:4px 4px 12px #0006}
+.tabs button{padding:5px 10px;border:1px solid #888;background:#e4e4e4;cursor:pointer}.tabs button.on{background:#fff;font-weight:bold;border-bottom:none}
+.tabp{background:#fff;border:1px solid #888;padding:8px;min-height:140px}
 </style></head><body>
+<datalist id="fl_dl"></datalist>
 <div class="top">
 <div class="hot">
-  <div><b>Горячий поток (1)</b> | Фаза: <label><input type="radio" name="ph1" value="1" checked style="width:auto">Single</label> <label><input type="radio" name="ph1" value="2" style="width:auto">Two</label></div>
-  <div class="row2" style="margin-top:6px"><span>Среда:</span><select id="fl1" onchange="loadProps(1)"></select></div>
-  <div class="row"><span>Расход G1:</span><input id="G1" value="6.0"><select id="uG1" data-prev="kg/s" onchange="conv(this,'G1','flow')"><option>kg/s</option><option>kg/h</option><option>t/h</option><option>g/s</option><option>lb/h</option></select><button class="clr" onclick="clr('G1')">×</button></div>
-  <div class="row"><span>T1 вход:</span><input id="t1_in" value="112.5"><select id="ut1i" data-prev="C" onchange="conv(this,'t1_in','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t1_in')">×</button></div>
-  <div class="row"><span>T1 выход:</span><input id="t1_out" value="40.0"><select id="ut1o" data-prev="C" onchange="conv(this,'t1_out','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t1_out')">×</button></div>
-  <div class="row"><span>Макс ΔP1:</span><input id="dp1" value="50"><select id="udp1" data-prev="kPa" onchange="conv(this,'dp1','pres')"><option>kPa</option><option>bar</option><option>MPa</option><option>kg/cm2</option><option>psi</option></select><span></span></div>
-  <div class="row"><span>P раб. 1:</span><input id="pop1" value="0.6"><select id="upop1" data-prev="MPa" onchange="conv(this,'pop1','pres')"><option>MPa</option><option>bar</option><option>kPa</option><option>kg/cm2</option></select><span></span></div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:6px">
-    <div>ρ1<input id="rho1" value="986"></div><div>c1<input id="cp1" value="4190"></div><div>μ1<input id="mu1" value="0.00054"></div><div>λ1<input id="k1" value="0.662"></div><div>r_з1<input id="rf1" value="0.000345"></div>
-  </div>
+  <div style="display:flex;justify-content:space-between"><b>Горячий поток (1)</b>
+    <span><label><input type="radio" name="ph1" value="1" checked style="width:auto">Single</label> <label><input type="radio" name="ph1" value="2" style="width:auto">Two</label></span></div>
+  <div class="row2" style="margin-top:6px"><span>Среда (поиск):</span><div style="display:flex;gap:4px"><input id="fl1" list="fl_dl" value="Вода (Water)" onchange="onFluid(1)" onfocus="this.select()"><button onclick="openModal(1)" style="width:auto;padding:2px 6px">Свойства</button></div></div>
+  <div class="row"><span>Расход G1:</span><input id="G1" value="6.0"><select id="uG1" data-prev="kg/s" onchange="conv(this,'G1','flow')"><option>kg/s</option><option>kg/h</option><option>t/h</option><option>g/s</option></select><button class="clr" onclick="clr('G1')">×</button></div>
+  <div class="row"><span>T1 вход:</span><input id="t1_in" value="90.0"><select id="ut1i" data-prev="C" onchange="conv(this,'t1_in','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t1_in')">×</button></div>
+  <div class="row"><span>T1 выход:</span><input id="t1_out" value="70.0"><select id="ut1o" data-prev="C" onchange="conv(this,'t1_out','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t1_out')">×</button></div>
+  <div class="row"><span>Макс ΔP1:</span><input id="dp1" value="50"><select id="udp1" data-prev="kPa" onchange="conv(this,'dp1','pres')"><option>kPa</option><option>bar</option><option>MPa</option><option>kg/cm2</option></select><span></span></div>
+  <div class="row"><span>P раб. 1:</span><input id="pop1" value="0.6" onchange="onFluid(1)"><select id="upop1" data-prev="MPa" onchange="conv(this,'pop1','pres')"><option>MPa</option><option>bar</option><option>kPa</option></select><span></span></div>
+  <div class="row2"><span>Загрязн. r1 (TEMA):</span><div style="display:flex;gap:4px"><select id="tf1" onchange="onFoul(1)" style="width:62%"></select><input id="rf1" value="0.00035" style="width:38%"></div></div>
 </div>
 <div class="cold">
-  <div><b>Холодный поток (2)</b> | Фаза: <label><input type="radio" name="ph2" value="1" checked style="width:auto">Single</label> <label><input type="radio" name="ph2" value="2" style="width:auto">Two</label></div>
-  <div class="row2" style="margin-top:6px"><span>Среда:</span><select id="fl2" onchange="loadProps(2)"></select></div>
-  <div class="row"><span>Расход G2:</span><input id="G2" value="21.8"><select id="uG2" data-prev="kg/s" onchange="conv(this,'G2','flow')"><option>kg/s</option><option>kg/h</option><option>t/h</option><option>g/s</option><option>lb/h</option></select><button class="clr" onclick="clr('G2')">×</button></div>
-  <div class="row"><span>t2 вход:</span><input id="t2_in" value="20.0"><select id="ut2i" data-prev="C" onchange="conv(this,'t2_in','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t2_in')">×</button></div>
-  <div class="row"><span>t2 выход:</span><input id="t2_out" value="40.0"><select id="ut2o" data-prev="C" onchange="conv(this,'t2_out','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t2_out')">×</button></div>
-  <div class="row"><span>Макс ΔP2:</span><input id="dp2" value="50"><select id="udp2" data-prev="kPa" onchange="conv(this,'dp2','pres')"><option>kPa</option><option>bar</option><option>MPa</option><option>kg/cm2</option><option>psi</option></select><span></span></div>
-  <div class="row"><span>P раб. 2:</span><input id="pop2" value="0.6"><select id="upop2" data-prev="MPa" onchange="conv(this,'pop2','pres')"><option>MPa</option><option>bar</option><option>kPa</option><option>kg/cm2</option></select><span></span></div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:6px">
-    <div>ρ2<input id="rho2" value="996"></div><div>c2<input id="cp2" value="4180"></div><div>μ2<input id="mu2" value="0.000804"></div><div>λ2<input id="k2" value="0.618"></div><div>r_з2<input id="rf2" value="0.000345"></div>
-  </div>
+  <div style="display:flex;justify-content:space-between"><b>Холодный поток (2)</b>
+    <span><label><input type="radio" name="ph2" value="1" checked style="width:auto">Single</label> <label><input type="radio" name="ph2" value="2" style="width:auto">Two</label></span></div>
+  <div class="row2" style="margin-top:6px"><span>Среда (поиск):</span><div style="display:flex;gap:4px"><input id="fl2" list="fl_dl" value="Вода (Water)" onchange="onFluid(2)" onfocus="this.select()"><button onclick="openModal(2)" style="width:auto;padding:2px 6px">Свойства</button></div></div>
+  <div class="row"><span>Расход G2:</span><input id="G2" value="2.1866"><select id="uG2" data-prev="kg/s" onchange="conv(this,'G2','flow')"><option>kg/s</option><option>kg/h</option><option>t/h</option><option>g/s</option></select><button class="clr" onclick="clr('G2')">×</button></div>
+  <div class="row"><span>t2 вход:</span><input id="t2_in" value="5.0"><select id="ut2i" data-prev="C" onchange="conv(this,'t2_in','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t2_in')">×</button></div>
+  <div class="row"><span>t2 выход:</span><input id="t2_out" value="60.0"><select id="ut2o" data-prev="C" onchange="conv(this,'t2_out','temp')"><option value="C">°C</option><option value="K">K</option><option value="F">°F</option></select><button class="clr" onclick="clr('t2_out')">×</button></div>
+  <div class="row"><span>Макс ΔP2:</span><input id="dp2" value="50"><select id="udp2" data-prev="kPa" onchange="conv(this,'dp2','pres')"><option>kPa</option><option>bar</option><option>MPa</option><option>kg/cm2</option></select><span></span></div>
+  <div class="row"><span>P раб. 2:</span><input id="pop2" value="0.6" onchange="onFluid(2)"><select id="upop2" data-prev="MPa" onchange="conv(this,'pop2','pres')"><option>MPa</option><option>bar</option><option>kPa</option></select><span></span></div>
+  <div class="row2"><span>Загрязн. r2 (TEMA):</span><div style="display:flex;gap:4px"><select id="tf2" onchange="onFoul(2)" style="width:62%"></select><input id="rf2" value="0.00035" style="width:38%"></div></div>
 </div>
-<div class="box" id="chart_box"><b>Temperature Graph (°C)</b><div id="svg_wrap"></div></div>
+<div class="box"><b>Temperature Graph (°C)</b><div id="svg_wrap"></div></div>
 </div>
 <div class="mid">
 <div class="box">
-  <div class="row"><span>Мощность Q:</span><input id="Q_kw" placeholder="Авто"><select id="uQ" data-prev="kW" onchange="conv(this,'Q_kw','pow')"><option>kW</option><option>W</option><option>Gcal/h</option><option>kcal/h</option><option>Btu/h</option></select><button class="clr" onclick="clr('Q_kw')">×</button></div>
-  <div class="row2"><span>Режим расчета:</span><select id="calc_mode"><option value="design">Подбор (Design)</option><option value="rating">Поверочный (Rating)</option></select></div>
-  <div class="row2"><span>Аппарат (Rating):</span><select id="unit_idx"></select></div>
+  <div class="row"><span>Мощность Q:</span><input id="Q_kw" placeholder="Авто"><select id="uQ" data-prev="kW" onchange="conv(this,'Q_kw','pow')"><option>kW</option><option>W</option><option>Gcal/h</option><option>kcal/h</option></select><button class="clr" onclick="clr('Q_kw')">×</button></div>
+  <div class="row2"><span>Режим расчета:</span><select id="calc_mode"><option value="design">Подбор (Design)</option><option value="rating">Поверочный (Rating)</option><option value="sim">Симуляция (0% запас)</option></select></div>
+  <div class="row2"><span>Аппарат (Rating/Sim):</span><select id="unit_idx"></select></div>
   <div class="row2"><span>Методика:</span><select id="method"><option value="dytnerskiy">Дытнерский</option><option value="bell">Bell-Delaware</option></select></div>
-  <div class="row2"><span>Горячий поток в:</span><select id="hot_side"><option value="tube">Трубах</option><option value="shell">Межтрубном</option></select></div>
+  <div class="row2"><span>Схема / Горячий в:</span><div style="display:flex;gap:4px"><select id="flow_type"><option value="counter">Противоток</option><option value="co">Прямоток</option></select><select id="hot_side"><option value="tube">В трубах</option><option value="shell">В межтруб.</option></select></div></div>
 </div>
 <div class="box">
   <div class="row2"><span>Тип ТУ:</span><select id="unit_type"><option value="AUTO_T">Авто: ТН / ТК (Табл.11)</option><option value="AUTO_X">Авто: ХН / ХК (Табл.11)</option><option>ТН</option><option>ТК</option><option>ХН</option><option>ХК</option></select></div>
-  <div class="row2"><span>Исполнение / Матер.:</span><div style="display:flex;gap:4px"><select id="orient"><option value="Г">Г (гориз.)</option><option value="В">В (верт.)</option></select><select id="mat"></select><select id="climate"><option>У</option><option>УХЛ</option><option>Т</option></select></div></div>
+  <div class="row2"><span>Исполн. / Матер.:</span><div style="display:flex;gap:4px"><select id="orient"><option value="Г">Г</option><option value="В">В</option></select><select id="mat"></select><select id="climate"><option>У</option><option>УХЛ</option><option>Т</option></select></div></div>
   <div class="row2"><span>Запас F мин/макс %:</span><div style="display:flex;gap:4px"><input id="min_margin" value="5"><input id="max_margin" value="50"></div></div>
   <div class="row2"><span>Ряды труб:</span><select id="use_tu_rows"><option value="1">Из ТУ (nrows)</option><option value="0">Формула Дытнерского</option></select></div>
-  <div class="row2"><span>Новая среда в БД:</span><div style="display:flex;gap:4px"><input id="new_fl" placeholder="Имя среды (из Потока 1)"><button onclick="saveFl()" style="width:auto;padding:3px 6px">Сохранить</button></div></div>
 </div>
 <div class="mech">
   <b>Расчетные параметры (ГОСТ 34347)</b>
@@ -70,61 +70,115 @@ th{background:#dde4ec}td:first-child,th:first-child{text-align:left}
 </div>
 <button class="act" onclick="run()">Рассчитать</button> <button class="act" onclick="exp()" style="background:#198754">Скачать CSV</button>
 <div id="msg"></div><div id="out"></div>
+
+<div id="fmodal" class="modal"><div class="mwin">
+  <div style="background:#0054e3;color:#fff;padding:4px 8px;font-weight:bold;margin:-12px -12px 10px">Custom Fluid Form — Поток <span id="m_idx">1</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+    <div><div class="row2"><span>Fluid Name:</span><input id="cf_name" value="Custom Fluid"></div>
+      <div class="row2"><span>Fluid State:</span><select id="cf_state"><option>All Liquid</option><option>All Vapor</option><option>Two Phase</option></select></div></div>
+    <div><span>Comment:</span><textarea id="cf_comm" rows="2" style="width:100%"></textarea></div>
+  </div>
+  <div class="tabs"><button class="on" onclick="swTab(0,this)">Liquid Properties</button><button onclick="swTab(1,this)">Vapor Properties</button><button onclick="swTab(2,this)">Bulk Properties</button></div>
+  <div id="tp0" class="tabp"><table id="tbl_liq"><tr><th>T (°C)</th><th>Density (kg/m³)</th><th>Viscosity (cP)</th><th>Heat Cap. kJ/(kg·°C)</th><th>Thermal Cond. W/(m·°C)</th></tr>
+    <tr><td><input value="20"></td><td><input value="998"></td><td><input value="1.0"></td><td><input value="4.18"></td><td><input value="0.60"></td></tr>
+    <tr><td><input value="80"></td><td><input value="972"></td><td><input value="0.35"></td><td><input value="4.20"></td><td><input value="0.67"></td></tr></table>
+    <button onclick="addRow('tbl_liq')" style="margin-top:5px">+ Строка T</button></div>
+  <div id="tp1" class="tabp" style="display:none"><p>Свойства паровой фазы (для двухфазного режима):</p><table id="tbl_vap"><tr><th>T (°C)</th><th>Density (kg/m³)</th><th>Viscosity (cP)</th><th>Heat Cap. kJ/(kg·°C)</th><th>Thermal Cond. W/(m·°C)</th></tr><tr><td><input value="100"></td><td><input value="0.6"></td><td><input value="0.012"></td><td><input value="2.08"></td><td><input value="0.025"></td></tr></table></div>
+  <div id="tp2" class="tabp" style="display:none"><p>Энтальпия / паросодержание (резерв для 2-фазного модуля).</p></div>
+  <div style="display:flex;justify-content:space-between;margin-top:10px">
+    <button onclick="saveCustomDB()">Save to DB...</button>
+    <div><button onclick="applyModal()" style="font-weight:bold;padding:4px 16px">OK</button> <button onclick="closeModal()">Cancel</button></div>
+  </div>
+</div></div>
 <script>
-let data=[];
-const F_FLOW={"kg/s":1,"kg/h":1/3600,"t/h":1000/3600,"g/s":0.001,"lb/h":0.453592/3600};
-const F_PRES={"kPa":1,"Pa":0.001,"bar":100,"MPa":1000,"kg/cm2":98.0665,"psi":6.89476};
-const F_POW={"kW":1,"W":0.001,"Gcal/h":1163,"kcal/h":0.001163,"Btu/h":0.00029307};
+let data=[], meta={}, activeStream=1;
+const S_PROPS={s1:{rho:986,cp:4190,mu:0.00054,k:0.662},s2:{rho:996,cp:4180,mu:0.000804,k:0.618}};
+const F_FLOW={"kg/s":1,"kg/h":1/3600,"t/h":1000/3600,"g/s":0.001};
+const F_PRES={"kPa":1,"bar":100,"MPa":1000,"kg/cm2":98.0665};
+const F_POW={"kW":1,"W":0.001,"Gcal/h":1163,"kcal/h":0.001163};
 function toSI(v,u,t){if(t==="flow")return v*F_FLOW[u];if(t==="pres")return v*F_PRES[u];if(t==="pow")return v*F_POW[u];return u==="C"?v:(u==="K"?v-273.15:(v-32)*5/9);}
 function fromSI(v,u,t){if(t==="flow")return v/F_FLOW[u];if(t==="pres")return v/F_PRES[u];if(t==="pow")return v/F_POW[u];return u==="C"?v:(u==="K"?v+273.15:v*9/5+32);}
 function conv(sel,id,t){const el=document.getElementById(id),prev=sel.dataset.prev,cur=sel.value;if(el.value!=="")el.value=+fromSI(toSI(+el.value,prev,t),cur,t).toPrecision(5);sel.dataset.prev=cur;}
 function clr(id){document.getElementById(id).value="";}
 
 async function init(){
-  const m=await(await fetch("/meta")).json();
-  ["fl1","fl2"].forEach(id=>{const s=document.getElementById(id);s.innerHTML="";m.fluids.forEach(f=>s.add(new Option(f,f)));});
-  const ms=document.getElementById("mat");m.materials.forEach(x=>ms.add(new Option(x,x)));
-  const us=document.getElementById("unit_idx");m.units.forEach((x,i)=>us.add(new Option(x,i)));
+  meta=await(await fetch("/meta")).json();
+  const dl=document.getElementById("fl_dl");dl.innerHTML="";
+  meta.fluids.forEach(f=>dl.appendChild(new Option(f)));
+  ["tf1","tf2"].forEach(id=>{
+    const s=document.getElementById(id);s.innerHTML="";
+    Object.keys(meta.fouling).forEach(k=>{
+      const opt=new Option(k,k);
+      if(k.startsWith("---"))opt.disabled=true;
+      s.add(opt);
+    });
+    s.selectedIndex=9;
+  });
+  meta.materials.forEach(x=>mat.add(new Option(x,x)));
+  meta.units.forEach((x,i)=>unit_idx.add(new Option(x,i)));
+  await onFluid(1); await onFluid(2);
 }
-async function loadProps(idx){
-  const name=document.getElementById("fl"+idx).value;
-  if(name.startsWith("0"))return;
+async function onFluid(idx){
+  const name=document.getElementById("fl"+idx).value.trim();
+  if(!name)return;
+  if(name.startsWith("0")){openModal(idx);return;}
   const ti=toSI(+(document.getElementById("t"+idx+"_in").value||20),document.getElementById("ut"+idx+"i").value,"temp");
   const to=toSI(+(document.getElementById("t"+idx+"_out").value||20),document.getElementById("ut"+idx+"o").value,"temp");
-  const pr=await(await fetch("/props",{method:"POST",body:JSON.stringify({name,t_mean:0.5*(ti+to)})})).json();
-  ["rho","cp","mu","k"].forEach(k=>document.getElementById(k+idx).value=pr[k]);
+  const pop=toSI(+(document.getElementById("pop"+idx).value||0.6),document.getElementById("upop"+idx).value,"pres")/1000;
+  S_PROPS["s"+idx]=await(await fetch("/props",{method:"POST",body:JSON.stringify({name,t_mean:0.5*(ti+to),p_op:pop})})).json();
 }
-async function saveFl(){
-  const name=document.getElementById("new_fl").value.trim();if(!name)return;
-  await fetch("/save_fluid",{method:"POST",body:JSON.stringify({name,rho:+rho1.value,cp:+cp1.value,mu:+mu1.value,k:+k1.value})});
-  init();alert("Среда сохранена в fluids.csv");
+function onFoul(idx){const v=meta.fouling[document.getElementById("tf"+idx).value];if(v!==null)document.getElementById("rf"+idx).value=v;}
+function openModal(idx){activeStream=idx;m_idx.textContent=idx;fmodal.style.display="flex";}
+function closeModal(){fmodal.style.display="none";}
+function swTab(n,btn){[0,1,2].forEach(i=>document.getElementById("tp"+i).style.display=i===n?"block":"none");btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on");}
+function addRow(id){const tr=document.getElementById(id).insertRow();for(let i=0;i<5;i++)tr.insertCell().innerHTML='<input value="">';}
+function readTbl(id){return Array.from(document.getElementById(id).rows).slice(1).map(r=>{const c=r.querySelectorAll("input");return{T:c.item(0).value,rho:c.item(1).value,mu_cP:c.item(2).value,cp_kJ:c.item(3).value,k:c.item(4).value};}).filter(x=>x.T!=="");}
+function applyModal(){
+  const rows=readTbl("tbl_liq");if(!rows.length)return;
+  const r=rows.at(0);S_PROPS["s"+activeStream]={rho:+r.rho,cp:+r.cp_kJ*1000,mu:+r.mu_cP/1000,k:+r.k};
+  closeModal();
 }
-function drawGraph(pts){
-  const W=280,H=220,p=32,ys=pts.flatMap(x=>[x.at(1),x.at(2)]);
-  const y0=Math.floor(Math.min(...ys)/10)*10,y1=Math.ceil(Math.max(...ys)/10)*10;
+async function saveCustomDB(){
+  const name=cf_name.value.trim();if(!name)return;
+  await fetch("/save_fluid",{method:"POST",body:JSON.stringify({name,state:cf_state.value,liq:readTbl("tbl_liq"),vap:readTbl("tbl_vap")})});
+  await init();alert("Сохранено в custom_fluids.json");
+}
+function drawGraph(pts, isCo){
+  const W=290,H=225,p=34,ys=pts.flatMap(x=>[x.at(1),x.at(2)]);
+  const rawMin=Math.min(...ys), rawMax=Math.max(...ys), span=Math.max(rawMax-rawMin,5);
+  const step=span<=25?5:(span<=60?10:20);
+  const y0=Math.floor((rawMin-0.12*span)/step)*step;
+  const y1=Math.ceil((rawMax+0.12*span)/step)*step;
   const sx=x=>p+x*(W-2*p),sy=y=>H-p-(y-y0)/(y1-y0||1)*(H-2*p);
-  let ticks="";for(let t=y0;t<=y1;t+=Math.max(10,Math.round((y1-y0)/5/10)*10)){let yy=sy(t);ticks+=`<line x1="${p}" y1="${yy}" x2="${W-p}" y2="${yy}" stroke="#ddd"/><text x="2" y="${yy+3}" font-size="9">${t}</text><text x="${W-p+3}" y="${yy+3}" font-size="9">${t}</text>`;}
+  let ticks="";
+  for(let t=y0;t<=y1;t+=step){
+    let yy=sy(t);
+    ticks+=`<line x1="${p}" y1="${yy}" x2="${W-p}" y2="${yy}" stroke="#e2e6ec"/><text x="3" y="${yy+3}" font-size="9" fill="#444">${t}</text><text x="${W-p+4}" y="${yy+3}" font-size="9" fill="#444">${t}</text>`;
+  }
   const pH=pts.map(x=>`${sx(x.at(0)).toFixed(1)},${sy(x.at(1)).toFixed(1)}`).join(" ");
   const pC=pts.map(x=>`${sx(x.at(0)).toFixed(1)},${sy(x.at(2)).toFixed(1)}`).join(" ");
-  const m=pts.at(20),xm=sx(m.at(0)),yh=sy(m.at(1)),yc=sy(m.at(2));
-  document.getElementById("svg_wrap").innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
-  <defs><linearGradient id="gh"><stop offset="0%" stop-color="#e00"/><stop offset="100%" stop-color="#f99"/></linearGradient>
-  <linearGradient id="gc"><stop offset="0%" stop-color="#9bf"/><stop offset="100%" stop-color="#04c"/></linearGradient></defs>
+  const f=pts.at(0), l=pts.at(-1);
+  const cLeft=isCo?"t1":"t2", cRight=isCo?"t2":"t1";
+  svg_wrap.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
   <rect x="${p}" y="${p}" width="${W-2*p}" height="${H-2*p}" fill="none" stroke="#333"/>${ticks}
-  <polyline fill="none" stroke="url(#gh)" stroke-width="2.5" points="${pH}"/>
-  <polyline fill="none" stroke="url(#gc)" stroke-width="2.5" points="${pC}"/>
-  <polyline fill="none" stroke="#d00" stroke-width="2" points="${xm-5},${yh-5} ${xm+2},${yh} ${xm-5},${yh+4}"/>
-  <polyline fill="none" stroke="#04c" stroke-width="2" points="${xm+5},${yc-4} ${xm-2},${yc} ${xm+5},${yc+5}"/></svg>`;
+  <polyline fill="none" stroke="#d9534f" stroke-width="2.5" points="${pH}"/>
+  <polyline fill="none" stroke="#0275d8" stroke-width="2.5" points="${pC}"/>
+  <text x="${p+3}" y="${sy(f.at(1))-5}" font-size="11" font-weight="bold" fill="#b00020">T1 (${f.at(1)}°)</text>
+  <text x="${W-p-52}" y="${sy(l.at(1))-5}" font-size="11" font-weight="bold" fill="#b00020">T2 (${l.at(1)}°)</text>
+  <text x="${p+3}" y="${sy(f.at(2))+13}" font-size="11" font-weight="bold" fill="#004499">${cLeft} (${f.at(2)}°)</text>
+  <text x="${W-p-50}" y="${sy(l.at(2))+13}" font-size="11" font-weight="bold" fill="#004499">${cRight} (${l.at(2)}°)</text></svg>`;
 }
 async function run(){
+  await onFluid(1); await onFluid(2);
   const raw=id=>document.getElementById(id).value.trim();
   const dp1=toSI(+raw("dp1"),udp1.value,"pres"),dp2=toSI(+raw("dp2"),udp2.value,"pres");
-  const p={calc_mode:calc_mode.value,unit_idx:unit_idx.value,unit_type:unit_type.value,method:method.value,hot_side:hot_side.value,
-    orient:orient.value,mat:mat.value,climate:climate.value,use_tu_rows:!!+use_tu_rows.value,
+  const p={calc_mode:calc_mode.value,unit_idx:unit_idx.value,unit_type:unit_type.value,method:method.value,
+    flow_type:flow_type.value,hot_side:hot_side.value,orient:orient.value,mat:mat.value,climate:climate.value,use_tu_rows:!!+use_tu_rows.value,
     Q_kw:raw("Q_kw")===""?null:toSI(+raw("Q_kw"),uQ.value,"pow"),
     G1:raw("G1")===""?null:toSI(+raw("G1"),uG1.value,"flow"),t1_in:raw("t1_in")===""?null:toSI(+raw("t1_in"),ut1i.value,"temp"),t1_out:raw("t1_out")===""?null:toSI(+raw("t1_out"),ut1o.value,"temp"),
     G2:raw("G2")===""?null:toSI(+raw("G2"),uG2.value,"flow"),t2_in:raw("t2_in")===""?null:toSI(+raw("t2_in"),ut2i.value,"temp"),t2_out:raw("t2_out")===""?null:toSI(+raw("t2_out"),ut2o.value,"temp"),
-    rho1:+rho1.value,cp1:+cp1.value,mu1:+mu1.value,k1:+k1.value,rf1:+rf1.value,rho2:+rho2.value,cp2:+cp2.value,mu2:+mu2.value,k2:+k2.value,rf2:+rf2.value,
+    rho1:S_PROPS.s1.rho,cp1:S_PROPS.s1.cp,mu1:S_PROPS.s1.mu,k1:S_PROPS.s1.k,rf1:+rf1.value,
+    rho2:S_PROPS.s2.rho,cp2:S_PROPS.s2.cp,mu2:S_PROPS.s2.mu,k2:S_PROPS.s2.k,rf2:+rf2.value,
     max_dp_t:hot_side.value==="tube"?dp1:dp2,max_dp_s:hot_side.value==="tube"?dp2:dp1,
     min_margin:+min_margin.value,max_margin:+max_margin.value,p_des_t:+p_des_t.value,p_des_s:+p_des_s.value,t_des:+t_des.value};
   const res=await(await fetch("/calc",{method:"POST",body:JSON.stringify(p)})).json();
@@ -134,7 +188,7 @@ async function run(){
   G1.value=+fromSI(b.G1,uG1.value,"flow").toPrecision(5);G2.value=+fromSI(b.G2,uG2.value,"flow").toPrecision(5);
   t1_in.value=+fromSI(b.t1_in,ut1i.value,"temp").toPrecision(4);t1_out.value=+fromSI(b.t1_out,ut1o.value,"temp").toPrecision(4);
   t2_in.value=+fromSI(b.t2_in,ut2i.value,"temp").toPrecision(4);t2_out.value=+fromSI(b.t2_out,ut2o.value,"temp").toPrecision(4);
-  drawGraph(b.tx);msg.innerHTML=`<p><b>Баланс:</b> Q=${b.Q_kw} кВт | P_исп=${res.p_test} МПа</p>`;
+  drawGraph(b.tx, b.flow_type==="co");msg.innerHTML=`<p><b>Баланс:</b> Q=${b.Q_kw} кВт | P_исп=${res.p_test} МПа</p>`;
   data=res.units;
   let h="<table><tr><th>Обозначение по ТУ 3612-024</th><th>F кат</th><th>F расч</th><th>Запас%</th><th>K</th><th>α_тр</th><th>α_мтр</th><th>w_тр</th><th>w_мтр</th><th>ΔP_тр</th><th>ΔP_мтр</th><th>Δt_ст/доп</th><th>Статус</th></tr>";
   data.forEach(r=>h+=`<tr><td><b>${r.model}</b></td><td>${r.F_cat}</td><td>${r.F_req}</td><td>${r.margin}</td><td>${r.K}</td><td>${r.alpha_t}</td><td>${r.alpha_s}</td><td>${r.wt}</td><td>${r.ws}</td><td>${r.dp_t}</td><td>${r.dp_s}</td><td>${r.dt_wall}</td><td class="warn">${r.warn}</td></tr>`);
