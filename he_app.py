@@ -17,10 +17,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/meta":
-            units_list = [f"{u['D']}-{u['dt']}x{int(u['w'])}-{u['L']}-{u['z']} (F={u['F']} м²)" for u in CATALOG]
+            cat_meta = [dict(idx=u["idx"], D=u["D"], dt=u["dt"], w=int(u["w"]), L=u["L"], z=u["z"], F=u["F"], types=u["types"]) for u in CATALOG]
             return self.send_json(dict(
                 fluids=get_all_fluid_names(), conc_fluids=list(CONC_FLUIDS.keys()),
-                materials=list(MATERIALS.keys()), fouling=TEMA_FOULING, units=units_list
+                materials=list(MATERIALS.keys()), fouling=TEMA_FOULING, cat=cat_meta
             ))
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -49,7 +49,7 @@ class Handler(BaseHTTPRequestHandler):
             if any(p.get(k) is None for k in ("G1", "t1_in", "G2", "t2_in")):
                 return self.send_json(dict(error="Для режима Симуляции задайте G1, T1 вход, G2 и t2 вход."))
             idx = int(p.get("unit_idx", 0))
-            u = next((x for i, x in enumerate(CATALOG) if i == idx), None)
+            u = next((x for x in CATALOG if x["idx"] == idx), None)
             sim_bal, r = simulate_unit(u, p)
             p_sim = dict(p)
             p_sim["Q_kw"] = None
@@ -64,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if mode == "rating":
             idx = int(p.get("unit_idx", 0))
-            u = next((x for i, x in enumerate(CATALOG) if i == idx), None)
+            u = next((x for x in CATALOG if x["idx"] == idx), None)
             out = [solve_unit(u, p, bal, True)] if u else []
         else:
             out = sorted([r for u in CATALOG if (r := solve_unit(u, p, bal, False))], key=lambda x: x["F_cat"])

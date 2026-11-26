@@ -8,7 +8,6 @@ MATERIALS = {
     "М19": ("Титан ВТ1-0", 21.0, 1.15),
 }
 
-# TEMA Standard Fouling Resistances in (m²·K)/W (converted from ft²·°F·hr/BTU)
 TEMA_FOULING = {
     "Ручной ввод": None,
     "--- ВОДА (<=52°C / >52°C) ---": None,
@@ -89,8 +88,13 @@ def check_table11(D, Py, mat_code, t_tube_wall, t_shell_wall):
         return False, None, round(dt_actual, 1)
     return (dt_actual <= dt_allow), dt_allow, round(dt_actual, 1)
 
-def format_tu_name(D, utype, orient, Py, mat_code, dt, L, z, climate, t_shell_max):
+def format_tu_name(D, utype, orient, Py, mat_code, dt, L, z, climate, ins_mode, t_shell_max, t_shell_min):
     py_str = str(Py).replace(".", ",")
     L_str = str(int(L)) if float(L).is_integer() else str(L).replace(".", ",")
-    ins = "-И" if (t_shell_max > 50.0 or t_shell_max < 5.0) else ""
-    return f"{D} {utype}{orient}-{py_str}-{mat_code}/{dt}Г-{L_str}-{z}-{climate}{ins}"
+    need_ins = (t_shell_max > 50.0 or t_shell_min < 5.0)
+    has_ins = need_ins if ins_mode == "auto" else (ins_mode == "yes")
+    ins = "-И" if has_ins else ""
+    ins_warn = ""
+    if ins_mode == "no" and need_ins:
+        ins_warn = f"⚠ T_кожуха={t_shell_max:.0f}°C (>50°C или <5°C): требуется изоляция -И (СП 61.13330.2012, п. 5.1)"
+    return f"{D} {utype}{orient}-{py_str}-{mat_code}/{dt}Г-{L_str}-{z}-{climate}{ins}", ins_warn

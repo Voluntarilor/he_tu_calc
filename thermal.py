@@ -64,27 +64,22 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
     at, as_ = Nut0 * kt / din, Nus0 * ks / dout
     _, k_wall, _ = MATERIALS.get(p["mat"], ("", 45.0, 1.0))
 
-    # Optional (Pr / Pr_wall)^0.25 correction per Dytnerskiy Eqs. 2.12, 2.16, 2.17
     if p.get("use_visc_corr") and flt and fls and not flt.startswith("0") and not fls.startswith("0"):
         K0 = 1.0 / (1.0 / as_ + (u["w"] / 1000.0) / k_wall + rft + rfs + (1.0 / at) * (dout / din))
         tm_t, tm_s = 0.5 * (tti + tto), 0.5 * (tsi + tso)
         q_fl = K0 * abs(tm_t - tm_s)
         tw_t = tm_t - q_fl / at if tm_t > tm_s else tm_t + q_fl / at
         tw_s = tm_s + q_fl / as_ if tm_t > tm_s else tm_s - q_fl / as_
-        pwt = get_props(flt, tw_t, pt_op, ct)
-        pws = get_props(fls, tw_s, ps_op, cs)
-        Pr_wt = pwt["cp"] * pwt["mu"] / pwt["k"]
-        Pr_ws = pws["cp"] * pws["mu"] / pws["k"]
-        at *= max(0.6, min(1.4, (Prt / Pr_wt) ** 0.25))
-        as_ *= max(0.6, min(1.4, (Prs / Pr_ws) ** 0.25))
+        pwt, pws = get_props(flt, tw_t, pt_op, ct), get_props(fls, tw_s, ps_op, cs)
+        at *= max(0.6, min(1.4, (Prt / (pwt["cp"] * pwt["mu"] / pwt["k"])) ** 0.25))
+        as_ *= max(0.6, min(1.4, (Prs / (pws["cp"] * pws["mu"] / pws["k"])) ** 0.25))
 
     K = 1.0 / (1.0 / as_ + (u["w"] / 1000.0) / k_wall + rft + rfs + (1.0 / at) * (dout / din))
     return K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso
 
 def solve_unit(u, p, bal, rating_mode=False):
     flow = p.get("flow_type", "counter")
-    if flow == "co" and u["z"] > 1 and not rating_mode:
-        return None
+    if flow == "co" and u["z"] > 1 and not rating_mode: return None
     p_req = max(p["p_des_t"], p["p_des_s"])
     valid_pys = [py for py in u["pys"] if py >= p_req - 1e-6]
     if not valid_pys and not rating_mode: return None
@@ -110,32 +105,37 @@ def solve_unit(u, p, bal, rating_mode=False):
     t_tube_wall = tm_t - q_flux / at if tm_t > tm_s else tm_t + q_flux / at
     ok_t11, dt_allow, dt_act = check_table11(u["D"], Py, p["mat"], t_tube_wall, tm_s)
 
-    req_type, warn = p["unit_type"], ""
+    req_type, warns = p["unit_type"], []
     if req_type in ("AUTO_T", "AUTO_X"):
         base_n, base_k = ("ТН", "ТК") if req_type == "AUTO_T" else ("ХН", "ХК")
         if ok_t11: chosen_type = base_n
         elif p["p_des_s"] <= TK_MAX_SHELL_P + 1e-6: chosen_type = base_k
         else:
             chosen_type = base_k
-            warn = f"⚠ Δt_ст={dt_act}°C > доп. и P_корп={p['p_des_s']} > {TK_MAX_SHELL_P} МПа: нужен ТП!"
+            warns.append(f"⚠ Δt_ст={dt_act}°C > доп. и P_корп={p['p_des_s']}>{TK_MAX_SHELL_P} МПа: нужен ТП (ГОСТ 15119 / ТУ 3612-024, Табл. 11)")
     else:
         chosen_type = req_type
         if chosen_type in ("ТН", "ХН") and not ok_t11:
-            warn = f"⚠ Δt_ст={dt_act}°C > доп.{dt_allow}°C (нужен ТК/ХК или ТП)"
+            warns.append(f"⚠ Δt_ст={dt_act}°C > доп.{dt_allow}°C: нужен ТК/ХК или ТП (ТУ 3612-024-00220302-02, Табл. 11)")
         if chosen_type in ("ТК", "ХК") and p["p_des_s"] > TK_MAX_SHELL_P + 1e-6:
-            warn = f"⚠ Для ТК/ХК макс P_корп={TK_MAX_SHELL_P} МПа (требуется ТП)"
+            warns.append(f"⚠ Для ТК/ХК макс P_корп={TK_MAX_SHELL_P} МПа: нужен ТП (ТУ 3612-024-00220302-02, Табл. 1 / ГОСТ 15119)")
 
-    if flow == "co" and u["z"] > 1: warn = "⚠ Прямоток только для 1-ходовых (z=1)"
+    if flow == "co" and u["z"] > 1:
+        warns.append("⚠ Прямоток допустим только при z=1 (Дытнерский, гл. 2)")
     if chosen_type not in u["types"]:
         if not rating_mode: return None
-        warn = f"⚠ Типоразмер не входит в ТУ для {chosen_type}"
-    if chosen_type in ("ТК", "ХК") and p["orient"] == "В": warn = "⚠ ТК/ХК по ТУ только горизонтальные (Г)"
-    if not valid_pys: warn = f"⚠ P_расч={p_req} МПа > макс Py={Py} МПа"
+        warns.append(f"⚠ Типоразмер не входит в сортамент {chosen_type} (ТУ 3612-024-00220302-02, Табл. 2–6)")
+    if chosen_type in ("ТК", "ХК") and p["orient"] == "В":
+        warns.append("⚠ Аппараты ТК/ХК с компенсатором изготавливаются только горизонтальными Г (ТУ 3612-024-00220302-02, п. 1.2)")
+    if not valid_pys:
+        warns.append(f"⚠ P_расч={p_req} МПа > макс Py={Py} МПа (ТУ 3612-024-00220302-02, Табл. 1)")
 
-    model = format_tu_name(u["D"], chosen_type, p["orient"], Py, p["mat"], u["dt"], u["L"], u["z"], p["climate"], max(tsi, tso))
-    return dict(model=model, F_cat=u["F"], F_req=round(Freq, 2), margin=round(mrg, 1), K=round(K, 1),
+    model, ins_warn = format_tu_name(u["D"], chosen_type, p["orient"], Py, p["mat"], u["dt"], u["L"], u["z"], p["climate"], p.get("ins_mode", "auto"), max(tsi, tso), min(tsi, tso))
+    if ins_warn: warns.append(ins_warn)
+
+    return dict(idx=u["idx"], model=model, F_cat=u["F"], F_req=round(Freq, 2), margin=round(mrg, 1), K=round(K, 1),
                 alpha_t=round(at, 0), alpha_s=round(as_, 0), wt=round(wt, 2), ws=round(ws, 2),
-                dp_t=round(dpt / 1000.0, 2), dp_s=round(dps / 1000.0, 2), dt_wall=f"{dt_act}/{dt_allow}", warn=warn)
+                dp_t=round(dpt / 1000.0, 2), dp_s=round(dps / 1000.0, 2), dt_wall=f"{dt_act}/{dt_allow}", warn="; ".join(warns))
 
 def simulate_unit(u, p):
     flow = p.get("flow_type", "counter")

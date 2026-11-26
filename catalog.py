@@ -30,7 +30,7 @@ def load_catalog():
     for D in p_map: p_map[D] = sorted(set(p_map[D]))
 
     rows = []
-    for r in cat_rows:
+    for i, r in enumerate(cat_rows):
         D, dt, z = int(num(r["D_shell_mm"])), int(num(r["D_tube_mm"])), int(num(r["pass_number_z"]))
         w, L, F = num(r["Tube_thickness_mm"]), num(r["L_tubes_mm"]), num(r["F_HE_m2"])
         At, Aw, Ac = num(r["A_passage of one pass tube side_m2"]), num(r["A_passage area in cut region_m2"]), num(r["A_passage area between baffles_m2"])
@@ -42,7 +42,7 @@ def load_catalog():
         types = ["ТН"] + (["ТК"] if D >= 325 or z == 1 else [])
         if dt == 25 and ((D in (159, 273) and z == 1) or (D >= 325 and z in (2, 4))): types += ["ХН", "ХК"]
         pys = p_map.get(D, [0.6, 1.0, 1.6, 2.5, 4.0])
-        rows.append(dict(D=D, dt=dt, w=w, z=z, L=L, F=F, At=At, Aw=Aw, Ac=Ac, nb=nb, N=N, nr=nr, dyt=dyt, dys=dys, types=types, pys=pys))
+        rows.append(dict(idx=i, D=D, dt=dt, w=w, z=z, L=L, F=F, At=At, Aw=Aw, Ac=Ac, nb=nb, N=N, nr=nr, dyt=dyt, dys=dys, types=types, pys=pys))
     return rows
 
 CATALOG = load_catalog()
