@@ -10,7 +10,7 @@ body{font-family:sans-serif;margin:14px;background:#e9edf2;font-size:12px}
 .row2{display:grid;grid-template-columns:125px 1fr;gap:5px;align-items:center;margin-bottom:5px}
 input,select{padding:4px;border:1px solid #bbb;border-radius:3px;font-size:12px;width:100%;box-sizing:border-box}
 .clr{background:#b00020;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-weight:bold;padding:0}
-button.act{padding:8px 14px;background:#0b5ed7;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold}
+button.act{padding:8px 14px;background:#0b5ed7;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;margin-right:4px}
 .err{color:#b00020;background:#fdecea;padding:8px;margin-top:8px;font-weight:bold;border-radius:4px}
 .warn{color:#b00020;font-weight:bold}
 table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff;font-size:12px}
@@ -72,11 +72,13 @@ tbody tr:hover{background:#eef5ff;cursor:pointer}
   <div class="row2"><span>P расч. кожух (МПа):</span><input id="p_des_s" value="1.0"></div>
   <div class="row2"><span>T расч. (°C):</span><input id="t_des" value="120"></div>
   <div class="row2"><span>P исп. (ГОСТ 34347):</span><input id="p_test" value="1.43" readonly style="background:#eee;font-weight:bold"></div>
+  <div class="row2"><span>Позиция / Назнач.:</span><div style="display:flex;gap:4px"><input id="item_no" value="E-101" style="width:35%"><input id="service" value="Подогреватель / Cooler" style="width:65%"></div></div>
 </div>
 </div>
 <button class="act" onclick="run()">Рассчитать</button>
 <button class="act" onclick="exp()" style="background:#198754">Скачать CSV</button>
 <button class="act" onclick="smodal.style.display='flex'" style="background:#495057">Калькулятор пара (P ↔ T)</button>
+<button class="act" onclick="openDatasheet()" style="background:#6f42c1">Datasheet (EN / RU)</button>
 <div id="msg"></div><div id="out"></div>
 
 <div id="fmodal" class="modal"><div class="mwin">
@@ -180,40 +182,25 @@ async function onFluid(idx){
   const pr=await(await fetch("/props",{method:"POST",body:JSON.stringify({name,t_mean:0.5*(ti+to),p_op:pop,conc:cval,rh:cval,t_in:ti,t_out:to,G})})).json();
   if(pr.error){
     PROP_ERR["s"+idx]=pr.error;
-    air.innerHTML=`<span style="background:#fff;color:#b00020;padding:2px 4px;border-radius:3px;display:inline-block">${pr.error}</span>`;
+    air.innerHTML=`\x3cspan style="background:#fff;color:#b00020;padding:2px 4px;border-radius:3px;display:inline-block">${pr.error}\x3c/span>`;
     return;
   }
   S_PROPS["s"+idx]=pr;
-  air.innerHTML=isAir?`<b>Mollier:</b> T_росы = ${pr.t_dew}°C | Конденсат = <b>${pr.cond_kgh} кг/ч</b> (Q_скрыт = ${pr.q_lat_kw} кВт)`:"";
+  air.innerHTML=isAir?`\x3cb>Mollier:\x3c/b> T_росы = ${pr.t_dew}°C | Конденсат = \x3cb>${pr.cond_kgh} кг/ч\x3c/b> (Q_скрыт = ${pr.q_lat_kw} кВт)`:"";
 }
 async function calcSteam(){
   const r=await(await fetch("/steam",{method:"POST",body:JSON.stringify({mode:sm_mode.value,val:+sm_val.value})})).json();
-  sm_out.innerHTML=r.error?`<span class="warn">${r.error}</span>`:`<b>P = ${r.P_mpa} МПа</b> ↔ <b>T_нас = ${r.T_c} °C</b><br>Теплота парообр. r = ${r.r_kjkg} кДж/кг | ρ' = ${r.rho_l} кг/м³ | ρ'' = ${r.rho_v} кг/м³`;
+  sm_out.innerHTML=r.error?`\x3cspan class="warn">${r.error}\x3c/span>`:`\x3cb>P = ${r.P_mpa} МПа\x3c/b> ↔ \x3cb>T_нас = ${r.T_c} °C\x3c/b>\x3cbr>Теплота парообр. r = ${r.r_kjkg} кДж/кг | ρ' = ${r.rho_l} кг/м³ | ρ'' = ${r.rho_v} кг/м³`;
 }
 function onFoul(idx){const v=meta.fouling[document.getElementById("tf"+idx).value];if(v!==null)document.getElementById("rf"+idx).value=v;}
 function openModal(idx){activeStream=idx;m_idx.textContent=idx;onStateChange();fmodal.style.display="flex";}
 function closeModal(){fmodal.style.display="none";}
-function swTab(n){
-  for(let i=0;i<3;i++){
-    document.getElementById("tp"+i).style.display=i===n?"block":"none";
-    document.getElementById("tb"+i).classList.toggle("on",i===n);
-  }
-}
-function onStateChange(){
-  const st=cf_state.value;
-  tb0.disabled=(st==="All Vapor"); tb1.disabled=(st==="All Liquid"); tb2.disabled=(st!=="Two Phase");
-  if(st==="All Liquid")swTab(0); else if(st==="All Vapor")swTab(1);
-}
-function addRow(id){const tr=document.getElementById(id).insertRow();for(let i=0;i<5;i++)tr.insertCell().innerHTML='<input value="">';}
+function swTab(n){for(let i=0;i<3;i++){document.getElementById("tp"+i).style.display=i===n?"block":"none";document.getElementById("tb"+i).classList.toggle("on",i===n);}}
+function onStateChange(){const st=cf_state.value;tb0.disabled=(st==="All Vapor");tb1.disabled=(st==="All Liquid");tb2.disabled=(st!=="Two Phase");if(st==="All Liquid")swTab(0);else if(st==="All Vapor")swTab(1);}
+function addRow(id){const tr=document.getElementById(id).insertRow();for(let i=0;i<5;i++)tr.insertCell().innerHTML='\x3cinput value="">';}
 function readTbl(id){return Array.from(document.getElementById(id).rows).slice(1).map(r=>{const c=r.querySelectorAll("input");return{T:c.item(0).value,rho:c.item(1).value,mu_cP:c.item(2).value,cp_kJ:c.item(3).value,k:c.item(4).value};}).filter(x=>x.T!=="");}
-function applyModal(){
-  const tbl=cf_state.value==="All Vapor"?"tbl_vap":"tbl_liq";
-  const rows=readTbl(tbl);if(!rows.length)return;
-  const r=rows.at(0);S_PROPS["s"+activeStream]={rho:+r.rho,cp:+r.cp_kJ*1000,mu:+r.mu_cP/1000,k:+r.k};
-  PROP_ERR["s"+activeStream]=null;closeModal();
-}
+function applyModal(){const tbl=cf_state.value==="All Vapor"?"tbl_vap":"tbl_liq";const rows=readTbl(tbl);if(!rows.length)return;const r=rows.at(0);S_PROPS["s"+activeStream]={rho:+r.rho,cp:+r.cp_kJ*1000,mu:+r.mu_cP/1000,k:+r.k};PROP_ERR["s"+activeStream]=null;closeModal();}
 async function saveCustomDB(){const name=cf_name.value.trim();if(!name)return;await fetch("/save_fluid",{method:"POST",body:JSON.stringify({name,state:cf_state.value,liq:readTbl("tbl_liq"),vap:readTbl("tbl_vap")})});await init();alert("Сохранено в custom_fluids.json");}
-
 function drawGraph(pts, isCo){
   const W=290,H=225,p=34,ys=pts.flatMap(x=>[x.at(1),x.at(2)]);
   const rawMin=Math.min(...ys), rawMax=Math.max(...ys), span=Math.max(rawMax-rawMin,5);
@@ -221,26 +208,24 @@ function drawGraph(pts, isCo){
   const y0=Math.floor((rawMin-0.12*span)/step)*step, y1=Math.ceil((rawMax+0.12*span)/step)*step;
   const sx=x=>p+x*(W-2*p),sy=y=>H-p-(y-y0)/(y1-y0||1)*(H-2*p);
   let ticks="";
-  for(let t=y0;t<=y1;t+=step){let yy=sy(t);ticks+=`<line x1="${p}" y1="${yy}" x2="${W-p}" y2="${yy}" stroke="#e2e6ec"/><text x="3" y="${yy+3}" font-size="9" fill="#444">${t}</text><text x="${W-p+4}" y="${yy+3}" font-size="9" fill="#444">${t}</text>`;}
+  for(let t=y0;t<=y1;t+=step){let yy=sy(t);ticks+=`\x3cline x1="${p}" y1="${yy}" x2="${W-p}" y2="${yy}" stroke="#e2e6ec"/>\x3ctext x="3" y="${yy+3}" font-size="9" fill="#444">${t}\x3c/text>\x3ctext x="${W-p+4}" y="${yy+3}" font-size="9" fill="#444">${t}\x3c/text>`;}
   const pH=pts.map(x=>`${sx(x.at(0)).toFixed(1)},${sy(x.at(1)).toFixed(1)}`).join(" ");
   const pC=pts.map(x=>`${sx(x.at(0)).toFixed(1)},${sy(x.at(2)).toFixed(1)}`).join(" ");
   const f=pts.at(0), l=pts.at(-1), cLeft=isCo?"t1":"t2", cRight=isCo?"t2":"t1";
-  svg_wrap.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%"><rect x="${p}" y="${p}" width="${W-2*p}" height="${H-2*p}" fill="none" stroke="#333"/>${ticks}
-  <polyline fill="none" stroke="#d9534f" stroke-width="2.5" points="${pH}"/><polyline fill="none" stroke="#0275d8" stroke-width="2.5" points="${pC}"/>
-  <text x="${p+3}" y="${sy(f.at(1))-5}" font-size="11" font-weight="bold" fill="#b00020">T1 (${f.at(1)}°)</text>
-  <text x="${W-p-52}" y="${sy(l.at(1))-5}" font-size="11" font-weight="bold" fill="#b00020">T2 (${l.at(1)}°)</text>
-  <text x="${p+3}" y="${sy(f.at(2))+13}" font-size="11" font-weight="bold" fill="#004499">${cLeft} (${f.at(2)}°)</text>
-  <text x="${W-p-50}" y="${sy(l.at(2))+13}" font-size="11" font-weight="bold" fill="#004499">${cRight} (${l.at(2)}°)</text></svg>`;
+  svg_wrap.innerHTML=`\x3csvg viewBox="0 0 ${W} ${H}" width="100%">\x3crect x="${p}" y="${p}" width="${W-2*p}" height="${H-2*p}" fill="none" stroke="#333"/>${ticks}
+  \x3cpolyline fill="none" stroke="#d9534f" stroke-width="2.5" points="${pH}"/>\x3cpolyline fill="none" stroke="#0275d8" stroke-width="2.5" points="${pC}"/>
+  \x3ctext x="${p+3}" y="${sy(f.at(1))-5}" font-size="11" font-weight="bold" fill="#b00020">T1 (${f.at(1)}°)\x3c/text>
+  \x3ctext x="${W-p-52}" y="${sy(l.at(1))-5}" font-size="11" font-weight="bold" fill="#b00020">T2 (${l.at(1)}°)\x3c/text>
+  \x3ctext x="${p+3}" y="${sy(f.at(2))+13}" font-size="11" font-weight="bold" fill="#004499">${cLeft} (${f.at(2)}°)\x3c/text>
+  \x3ctext x="${W-p-50}" y="${sy(l.at(2))+13}" font-size="11" font-weight="bold" fill="#004499">${cRight} (${l.at(2)}°)\x3c/text>\x3c/svg>`;
 }
-async function run(){
-  await onFluid(1); await onFluid(2);
-  if(PROP_ERR.s1 || PROP_ERR.s2){msg.innerHTML=`<div class="err">${PROP_ERR.s1 || PROP_ERR.s2}</div>`;out.innerHTML="";return;}
+function buildPayload(){
   const raw=id=>document.getElementById(id).value.trim();
   const dp1=toSI(+raw("dp1"),udp1.value,"pres"),dp2=toSI(+raw("dp2"),udp2.value,"pres");
-  const p={calc_mode:calc_mode.value,unit_idx:selIdx,unit_type:unit_type.value,method:method.value,
+  return {calc_mode:calc_mode.value,unit_idx:selIdx,unit_type:unit_type.value,method:method.value,
     flow_type:flow_type.value,hot_side:hot_side.value,orient:orient.value,mat:mat.value,climate:climate.value,
     ins_mode:ins_mode.value,use_tu_rows:!!+use_tu_rows.value,use_visc_corr:use_visc.checked,
-    fl1:fl1.value,fl2:fl2.value,c1:+c1.value,c2:+c2.value,
+    item_no:raw("item_no"),service:raw("service"),fl1:fl1.value,fl2:fl2.value,c1:+c1.value,c2:+c2.value,
     pop1:toSI(+(raw("pop1")||0.6),upop1.value,"pres")/1000,pop2:toSI(+(raw("pop2")||0.6),upop2.value,"pres")/1000,
     Q_kw:raw("Q_kw")===""?null:toSI(+raw("Q_kw"),uQ.value,"pow"),
     G1:raw("G1")===""?null:toSI(+raw("G1"),uG1.value,"flow"),t1_in:raw("t1_in")===""?null:toSI(+raw("t1_in"),ut1i.value,"temp"),t1_out:raw("t1_out")===""?null:toSI(+raw("t1_out"),ut1o.value,"temp"),
@@ -249,8 +234,12 @@ async function run(){
     rho2:S_PROPS.s2.rho,cp2:S_PROPS.s2.cp,mu2:S_PROPS.s2.mu,k2:S_PROPS.s2.k,rf2:+rf2.value,
     max_dp_t:hot_side.value==="tube"?dp1:dp2,max_dp_s:hot_side.value==="tube"?dp2:dp1,
     min_margin:+min_margin.value,max_margin:+max_margin.value,p_des_t:+p_des_t.value,p_des_s:+p_des_s.value,t_des:+t_des.value};
-  const res=await(await fetch("/calc",{method:"POST",body:JSON.stringify(p)})).json();
-  if(res.error){msg.innerHTML=`<div class="err">${res.error}</div>`;out.innerHTML="";return;}
+}
+async function run(){
+  await onFluid(1); await onFluid(2);
+  if(PROP_ERR.s1 || PROP_ERR.s2){msg.innerHTML=`\x3cdiv class="err">${PROP_ERR.s1 || PROP_ERR.s2}\x3c/div>`;out.innerHTML="";return;}
+  const res=await(await fetch("/calc",{method:"POST",body:JSON.stringify(buildPayload())})).json();
+  if(res.error){msg.innerHTML=`\x3cdiv class="err">${res.error}\x3c/div>`;out.innerHTML="";return;}
   const b=res.balance;p_test.value=res.p_test;
   Q_kw.value=+fromSI(b.Q_kw,uQ.value,"pow").toPrecision(5);
   G1.value=+fromSI(b.G1,uG1.value,"flow").toPrecision(5);G2.value=+fromSI(b.G2,uG2.value,"flow").toPrecision(5);
@@ -263,14 +252,18 @@ async function run(){
   data.forEach(r=>h+=`\x3ctr onclick="pickUnit(${r.idx})">\x3ctd>\x3cb>${r.model}\x3c/b>\x3c/td>\x3ctd>${r.F_cat}\x3c/td>\x3ctd>${r.F_req}\x3c/td>\x3ctd>${r.margin}\x3c/td>\x3ctd>${r.K}\x3c/td>\x3ctd>${r.alpha_t}\x3c/td>\x3ctd>${r.alpha_s}\x3c/td>\x3ctd>${r.wt}\x3c/td>\x3ctd>${r.ws}\x3c/td>\x3ctd>${r.dp_t}\x3c/td>\x3ctd>${r.dp_s}\x3c/td>\x3ctd>${r.dt_wall}\x3c/td>\x3ctd class="warn">${r.warn}\x3c/td>\x3c/tr>`);
   out.innerHTML=data.length?h+"\x3c/tbody>\x3c/table>":"\x3cp>Нет подходящих аппаратов.\x3c/p>";
 }
+async function openDatasheet(){
+  await onFluid(1); await onFluid(2);
+  if(PROP_ERR.s1 || PROP_ERR.s2){msg.innerHTML=`\x3cdiv class="err">${PROP_ERR.s1 || PROP_ERR.s2}\x3c/div>`;return;}
+  const w=window.open("","_blank");
+  const html=await(await fetch("/datasheet",{method:"POST",body:JSON.stringify(buildPayload())})).text();
+  w.document.open();w.document.write(html);w.document.close();
+}
 function exp(){
   if(!data.length)return;
-  const k=Object.keys(data.at(0));
+  const k=["model","F_cat","F_req","margin","K","alpha_t","alpha_s","wt","ws","dp_t","dp_s","dt_wall","warn"];
   const csv=[k.join(";"),...data.map(r=>k.map(x=>String(r[x]).replace(".",",")).join(";"))].join("\n");
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv"}));
-  a.download="results.csv";
-  a.click();
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\uFEFF"+csv],{type:"text/csv"}));a.download="results.csv";a.click();
 }
 init();
 </script></body></html>

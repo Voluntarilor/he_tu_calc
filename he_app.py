@@ -5,6 +5,7 @@ from balance import solve_balance
 from thermal import solve_unit, simulate_unit
 from fluids import get_all_fluid_names, CONC_FLUIDS, HAS_CP, load_custom_db, save_custom_fluid, get_props, steam_sat
 from rules import MATERIALS, TEMA_FOULING, test_pressure_gost34347
+from datasheet import render_datasheet
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -15,6 +16,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(obj).encode("utf-8"))
 
+    def send_html(self, html_str):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(html_str.encode("utf-8"))
+
     def do_GET(self):
         if self.path == "/meta":
             cat_meta = [dict(idx=u["idx"], D=u["D"], dt=u["dt"], w=int(u["w"]), L=u["L"], z=u["z"], F=u["F"], types=u["types"]) for u in CATALOG]
@@ -22,10 +29,10 @@ class Handler(BaseHTTPRequestHandler):
                 fluids=get_all_fluid_names(), conc_fluids=list(CONC_FLUIDS.keys()),
                 materials=list(MATERIALS.keys()), fouling=TEMA_FOULING, cat=cat_meta
             ))
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
         with open(os.path.join(BASE, "index.html"), "rb") as f:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
             self.wfile.write(f.read())
 
     def do_POST(self):
@@ -45,6 +52,23 @@ class Handler(BaseHTTPRequestHandler):
         p_test = test_pressure_gost34347(max(p["p_des_t"], p["p_des_s"]), p["t_des"], p["mat"])
         mode = p.get("calc_mode", "design")
 
+        if self.path == "/datasheet":
+            idx = int(p.get("unit_idx", 0))
+            u = next((x for x in CATALOG if x["idx"] == idx), None)
+            if not u:
+                return self.send_html("<h3>Unit not found</h3>")
+            if mode == "sim":
+                sim_bal, r = simulate_unit(u, p)
+                p_sim = dict(p)
+                p_sim.update(Q_kw=None, t1_out=sim_bal["t1_out"], t2_out=sim_bal["t2_out"])
+                bal, _ = solve_balance(p_sim)
+            else:
+                bal, err = solve_balance(p)
+                if err:
+                    return self.send_html(f"<h3>{err}</h3>")
+                r = solve_unit(u, p, bal, rating_mode=True)
+            return self.send_html(render_datasheet(p, bal, r, p_test))
+
         if mode == "sim":
             if any(p.get(k) is None for k in ("G1", "t1_in", "G2", "t2_in")):
                 return self.send_json(dict(error="Для режима Симуляции задайте G1, T1 вход, G2 и t2 вход."))
@@ -52,9 +76,7 @@ class Handler(BaseHTTPRequestHandler):
             u = next((x for x in CATALOG if x["idx"] == idx), None)
             sim_bal, r = simulate_unit(u, p)
             p_sim = dict(p)
-            p_sim["Q_kw"] = None
-            p_sim["t1_out"] = sim_bal["t1_out"]
-            p_sim["t2_out"] = sim_bal["t2_out"]
+            p_sim.update(Q_kw=None, t1_out=sim_bal["t1_out"], t2_out=sim_bal["t2_out"])
             bal, _ = solve_balance(p_sim)
             return self.send_json(dict(balance=bal, p_test=p_test, units=[r]))
 

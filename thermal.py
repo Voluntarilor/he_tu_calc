@@ -43,6 +43,7 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
     Res, Prs = rhos * ws * dout / mus, cps * mus / ks
     wsn = 4.0 * Gs / (math.pi * (u["dys"] / 1000.0) ** 2 * rhos)
     mr = u["nr"] if p["use_tu_rows"] else math.ceil(math.sqrt((u["N"] - 1)/3.0 + 0.25))
+    bd_frac = dict(A=0.0, B=1.0, C=0.0, E=0.0, F=0.0)
 
     if p["method"] == "dytnerskiy":
         Nus0 = 0.24*(Res**0.6)*(Prs**0.36) if Res >= 1000 else 0.34*(Res**0.5)*(Prs**0.36)
@@ -60,6 +61,7 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
         ww = Gs / (rhos * math.sqrt(u["Ac"] * u["Aw"]))
         dpw = (2.0 + 0.6 * mr) * (rhos * ww ** 2 / 2.0) * Rl
         dps = ((u["nb"]-1)*dpbi*Rb*Rl + u["nb"]*dpw + 2.0*dpbi*Rb*0.92) + 3.0*(rhos*wsn**2/2.0)
+        bd_frac = dict(A=0.04, B=round(1.0 - Fbp - 0.18, 3), C=0.06, E=0.08, F=round(Fbp, 3))
 
     at, as_ = Nut0 * kt / din, Nus0 * ks / dout
     _, k_wall, _ = MATERIALS.get(p["mat"], ("", 45.0, 1.0))
@@ -74,8 +76,16 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
         at *= max(0.6, min(1.4, (Prt / (pwt["cp"] * pwt["mu"] / pwt["k"])) ** 0.25))
         as_ *= max(0.6, min(1.4, (Prs / (pws["cp"] * pws["mu"] / pws["k"])) ** 0.25))
 
-    K = 1.0 / (1.0 / as_ + (u["w"] / 1000.0) / k_wall + rft + rfs + (1.0 / at) * (dout / din))
-    return K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso
+    rs_th, rt_th, rm_th, rf_th = 1.0 / as_, (1.0 / at) * (dout / din), (u["w"] / 1000.0) / k_wall, rft + rfs
+    R_tot = rs_th + rt_th + rm_th + rf_th
+    K = 1.0 / R_tot
+    K_clean = 1.0 / (rs_th + rt_th + rm_th)
+    extra = dict(
+        K_clean=round(K_clean, 1), r_pct=dict(s=round(rs_th/R_tot*100,1), t=round(rt_th/R_tot*100,1), f=round(rf_th/R_tot*100,1), m=round(rm_th/R_tot*100,1)),
+        rv2_t=round(rhot * wtn**2, 1), rv2_s=round(rhos * wsn**2, 1), bd=bd_frac,
+        Gt=round(Gt, 3), Gs=round(Gs, 3), rhot=rhot, rhos=rhos, cpt=cpt, cps=cps, mut=mut, mus=mus, kt=kt, ks=ks, rft=rft, rfs=rfs
+    )
+    return K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso, extra
 
 def solve_unit(u, p, bal, rating_mode=False):
     flow = p.get("flow_type", "counter")
@@ -90,7 +100,7 @@ def solve_unit(u, p, bal, rating_mode=False):
     if ft < 0.75 and not rating_mode: return None
     ft = max(ft, 0.5)
 
-    K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso = calc_hydraulics_and_k(
+    K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso, extra = calc_hydraulics_and_k(
         u, p, bal["G1"], bal["t1_in"], bal["t1_out"], bal["G2"], bal["t2_in"], bal["t2_out"]
     )
     Freq = Q / (K * lmtd * ft)
@@ -120,22 +130,21 @@ def solve_unit(u, p, bal, rating_mode=False):
         if chosen_type in ("ТК", "ХК") and p["p_des_s"] > TK_MAX_SHELL_P + 1e-6:
             warns.append(f"⚠ Для ТК/ХК макс P_корп={TK_MAX_SHELL_P} МПа: нужен ТП (ТУ 3612-024-00220302-02, Табл. 1 / ГОСТ 15119)")
 
-    if flow == "co" and u["z"] > 1:
-        warns.append("⚠ Прямоток допустим только при z=1 (Дытнерский, гл. 2)")
+    if flow == "co" and u["z"] > 1: warns.append("⚠ Прямоток допустим только при z=1 (Дытнерский, гл. 2)")
     if chosen_type not in u["types"]:
         if not rating_mode: return None
         warns.append(f"⚠ Типоразмер не входит в сортамент {chosen_type} (ТУ 3612-024-00220302-02, Табл. 2–6)")
     if chosen_type in ("ТК", "ХК") and p["orient"] == "В":
         warns.append("⚠ Аппараты ТК/ХК с компенсатором изготавливаются только горизонтальными Г (ТУ 3612-024-00220302-02, п. 1.2)")
-    if not valid_pys:
-        warns.append(f"⚠ P_расч={p_req} МПа > макс Py={Py} МПа (ТУ 3612-024-00220302-02, Табл. 1)")
+    if not valid_pys: warns.append(f"⚠ P_расч={p_req} МПа > макс Py={Py} МПа (ТУ 3612-024-00220302-02, Табл. 1)")
 
     model, ins_warn = format_tu_name(u["D"], chosen_type, p["orient"], Py, p["mat"], u["dt"], u["L"], u["z"], p["climate"], p.get("ins_mode", "auto"), max(tsi, tso), min(tsi, tso))
     if ins_warn: warns.append(ins_warn)
 
     return dict(idx=u["idx"], model=model, F_cat=u["F"], F_req=round(Freq, 2), margin=round(mrg, 1), K=round(K, 1),
-                alpha_t=round(at, 0), alpha_s=round(as_, 0), wt=round(wt, 2), ws=round(ws, 2),
-                dp_t=round(dpt / 1000.0, 2), dp_s=round(dps / 1000.0, 2), dt_wall=f"{dt_act}/{dt_allow}", warn="; ".join(warns))
+                lmtd_corr=round(lmtd * ft, 2), alpha_t=round(at, 0), alpha_s=round(as_, 0), wt=round(wt, 2), ws=round(ws, 2),
+                dp_t=round(dpt / 1000.0, 2), dp_s=round(dps / 1000.0, 2), dt_wall=f"{dt_act}/{dt_allow}", warn="; ".join(warns),
+                tti=tti, tto=tto, tsi=tsi, tso=tso, geo=u, extra=extra)
 
 def simulate_unit(u, p):
     flow = p.get("flow_type", "counter")
@@ -146,7 +155,7 @@ def simulate_unit(u, p):
     t1o, t2o = t1i - 0.5 * (t1i - t2i) * (Cmin / C1), t2i + 0.5 * (t1i - t2i) * (Cmin / C2)
 
     for _ in range(15):
-        K, at, as_, wt, ws, dpt, dps, _, _, _, _ = calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o)
+        K, at, as_, wt, ws, dpt, dps, _, _, _, _, _ = calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o)
         _, ft = lmtd_ft(t1i, t1o, t2i, t2o, u["z"], flow)
         ft = max(ft, 0.6)
         ntu = (K * u["F"] * ft) / Cmin
