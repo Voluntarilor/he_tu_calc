@@ -6,6 +6,7 @@ from thermal import solve_unit, simulate_unit
 from fluids import get_all_fluid_names, CONC_FLUIDS, HAS_CP, load_custom_db, save_custom_fluid, get_props, steam_sat
 from rules import MATERIALS, TEMA_FOULING, test_pressure_gost34347
 from datasheet import render_datasheet
+from calcsheet import render_calcsheet
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -52,7 +53,9 @@ class Handler(BaseHTTPRequestHandler):
         p_test = test_pressure_gost34347(max(p["p_des_t"], p["p_des_s"]), p["t_des"], p["mat"])
         mode = p.get("calc_mode", "design")
 
-        if self.path == "/datasheet":
+        if self.path in ("/datasheet", "/calcsheet"):
+            if self.path == "/calcsheet":
+                p = dict(p, method="dytnerskiy")
             idx = int(p.get("unit_idx", 0))
             u = next((x for x in CATALOG if x["idx"] == idx), None)
             if not u:
@@ -67,7 +70,8 @@ class Handler(BaseHTTPRequestHandler):
                 if err:
                     return self.send_html(f"<h3>{err}</h3>")
                 r = solve_unit(u, p, bal, rating_mode=True)
-            return self.send_html(render_datasheet(p, bal, r, p_test))
+            fn = render_datasheet if self.path == "/datasheet" else render_calcsheet
+            return self.send_html(fn(p, bal, r, p_test))
 
         if mode == "sim":
             if any(p.get(k) is None for k in ("G1", "t1_in", "G2", "t2_in")):

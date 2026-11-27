@@ -8,6 +8,23 @@ MATERIALS = {
     "М19": ("Титан ВТ1-0", 21.0, 1.15),
 }
 
+MAT_PARTS = {
+    "М1": ("Трубы: Сталь 20 | Кожух: Ст3сп / 09Г2С | Решетки: Ст3сп / Сталь 20",
+           "Tubes: Carbon Steel 20 | Shell: St3sp / 09G2S | Tubesheets: St3sp / Steel 20"),
+    "М3": ("Трубы: 09Г2С (10Г2) | Кожух: 09Г2С | Решетки: 09Г2С",
+           "Tubes: Low-Temp 09G2S | Shell: 09G2S | Tubesheets: 09G2S"),
+    "М6": ("Трубы: 12Х18Н10Т | Кожух: Ст3сп / 09Г2С | Решетки: 12Х18Н10Т (наплавка)",
+           "Tubes: SS 321 (12Kh18N10T) | Shell: Carbon Steel | Tubesheets: SS 321 / CS"),
+    "М8": ("Трубы: 12Х18Н10Т | Кожух: 12Х18Н10Т | Решетки: 12Х18Н10Т",
+           "Tubes: SS 321 (12Kh18N10T) | Shell: SS 321 | Tubesheets: SS 321"),
+    "М10": ("Трубы: 10Х17Н13М2Т | Кожух: 10Х17Н13М2Т | Решетки: 10Х17Н13М2Т",
+            "Tubes: SS 316Ti (10Kh17N13M2T) | Shell: SS 316Ti | Tubesheets: SS 316Ti"),
+    "М11": ("Трубы: Латунь Л68 / ЛО70-1 | Кожух: Ст3сп | Решетки: Ст3сп / Латунь",
+            "Tubes: Brass L68 / LO70-1 | Shell: Carbon Steel | Tubesheets: CS / Brass"),
+    "М19": ("Трубы: Титан ВТ1-0 | Кожух: Титан ВТ1-0 / Ст3 | Решетки: Титан ВТ1-0",
+            "Tubes: Titanium VT1-0 | Shell: Titanium / CS | Tubesheets: Titanium VT1-0"),
+}
+
 TEMA_FOULING = {
     "Ручной ввод": None,
     "--- ВОДА (<=52°C / >52°C) ---": None,

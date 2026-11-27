@@ -68,10 +68,9 @@ tbody tr:hover{background:#eef5ff;cursor:pointer}
 </div>
 <div class="mech">
   <b>Расчетные параметры (ГОСТ 34347)</b>
-  <div class="row2" style="margin-top:6px"><span>P расч. труб (МПа):</span><input id="p_des_t" value="1.0"></div>
-  <div class="row2"><span>P расч. кожух (МПа):</span><input id="p_des_s" value="1.0"></div>
-  <div class="row2"><span>T расч. (°C):</span><input id="t_des" value="120"></div>
-  <div class="row2"><span>P исп. (ГОСТ 34347):</span><input id="p_test" value="1.43" readonly style="background:#eee;font-weight:bold"></div>
+  <div class="row2" style="margin-top:5px"><span>P расч. труб / кожух:</span><div style="display:flex;gap:4px"><input id="p_des_t" value="1.0" title="P расч. труб, МПа"><input id="p_des_s" value="1.0" title="P расч. кожуха, МПа"></div></div>
+  <div class="row2"><span>T расч. / P исп. (МПа):</span><div style="display:flex;gap:4px"><input id="t_des" value="120" title="T расч., °C"><input id="p_test" value="1.43" readonly style="background:#eee;font-weight:bold" title="P исп. ГОСТ 34347"></div></div>
+  <div class="row2"><span>Штуцер Dy корп/труб:</span><div style="display:flex;gap:4px"><input id="dy_shell" placeholder="Авто (ТУ)"><input id="dy_tube" placeholder="Авто (ТУ)"></div></div>
   <div class="row2"><span>Позиция / Назнач.:</span><div style="display:flex;gap:4px"><input id="item_no" value="E-101" style="width:35%"><input id="service" value="Подогреватель / Cooler" style="width:65%"></div></div>
 </div>
 </div>
@@ -79,6 +78,8 @@ tbody tr:hover{background:#eef5ff;cursor:pointer}
 <button class="act" onclick="exp()" style="background:#198754">Скачать CSV</button>
 <button class="act" onclick="smodal.style.display='flex'" style="background:#495057">Калькулятор пара (P ↔ T)</button>
 <button class="act" onclick="openDatasheet()" style="background:#6f42c1">Datasheet (EN / RU)</button>
+<button class="act" onclick="openReport('/calcsheet')" style="background:#fd7e14">Расчет по шагам</button>
+
 <div id="msg"></div><div id="out"></div>
 
 <div id="fmodal" class="modal"><div class="mwin">
@@ -225,6 +226,7 @@ function buildPayload(){
   return {calc_mode:calc_mode.value,unit_idx:selIdx,unit_type:unit_type.value,method:method.value,
     flow_type:flow_type.value,hot_side:hot_side.value,orient:orient.value,mat:mat.value,climate:climate.value,
     ins_mode:ins_mode.value,use_tu_rows:!!+use_tu_rows.value,use_visc_corr:use_visc.checked,
+    dy_shell:raw("dy_shell")===""?null:+raw("dy_shell"),dy_tube:raw("dy_tube")===""?null:+raw("dy_tube"),
     item_no:raw("item_no"),service:raw("service"),fl1:fl1.value,fl2:fl2.value,c1:+c1.value,c2:+c2.value,
     pop1:toSI(+(raw("pop1")||0.6),upop1.value,"pres")/1000,pop2:toSI(+(raw("pop2")||0.6),upop2.value,"pres")/1000,
     Q_kw:raw("Q_kw")===""?null:toSI(+raw("Q_kw"),uQ.value,"pow"),
@@ -252,13 +254,14 @@ async function run(){
   data.forEach(r=>h+=`\x3ctr onclick="pickUnit(${r.idx})">\x3ctd>\x3cb>${r.model}\x3c/b>\x3c/td>\x3ctd>${r.F_cat}\x3c/td>\x3ctd>${r.F_req}\x3c/td>\x3ctd>${r.margin}\x3c/td>\x3ctd>${r.K}\x3c/td>\x3ctd>${r.alpha_t}\x3c/td>\x3ctd>${r.alpha_s}\x3c/td>\x3ctd>${r.wt}\x3c/td>\x3ctd>${r.ws}\x3c/td>\x3ctd>${r.dp_t}\x3c/td>\x3ctd>${r.dp_s}\x3c/td>\x3ctd>${r.dt_wall}\x3c/td>\x3ctd class="warn">${r.warn}\x3c/td>\x3c/tr>`);
   out.innerHTML=data.length?h+"\x3c/tbody>\x3c/table>":"\x3cp>Нет подходящих аппаратов.\x3c/p>";
 }
-async function openDatasheet(){
+async function openReport(url){
   await onFluid(1); await onFluid(2);
   if(PROP_ERR.s1 || PROP_ERR.s2){msg.innerHTML=`\x3cdiv class="err">${PROP_ERR.s1 || PROP_ERR.s2}\x3c/div>`;return;}
   const w=window.open("","_blank");
-  const html=await(await fetch("/datasheet",{method:"POST",body:JSON.stringify(buildPayload())})).text();
+  const html=await(await fetch(url,{method:"POST",body:JSON.stringify(buildPayload())})).text();
   w.document.open();w.document.write(html);w.document.close();
 }
+
 function exp(){
   if(!data.length)return;
   const k=["model","F_cat","F_req","margin","K","alpha_t","alpha_s","wt","ws","dp_t","dp_s","dt_wall","warn"];

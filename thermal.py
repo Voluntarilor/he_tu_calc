@@ -6,16 +6,19 @@ def lmtd_ft(t1i, t1o, t2i, t2o, z, flow="counter"):
     if flow == "co":
         dtb, dtm = max(t1i - t2i, 1e-6), max(t1o - t2o, 1e-6)
         lmtd = dtb if abs(dtb - dtm) < 1e-4 else (dtb - dtm) / math.log(dtb / dtm)
-        return lmtd, 1.0
+        return lmtd, 1.0, dict(dtb=dtb, dtm=dtm, P=0.0, R=0.0)
     dtb, dtm = max(t1i - t2o, 1e-6), max(t1o - t2i, 1e-6)
     lmtd = dtb if abs(dtb - dtm) < 1e-4 else (dtb - dtm) / math.log(dtb / dtm)
-    if z == 1: return lmtd, 1.0
+    if z == 1:
+        return lmtd, 1.0, dict(dtb=dtb, dtm=dtm, P=0.0, R=0.0)
     P, R = (t2o - t2i) / (t1i - t2i), (t1i - t1o) / (t2o - t2i)
     eta = math.sqrt(R * R + 1.0)
-    if P >= 2.0 / (1.0 + R + eta) - 1e-4: return lmtd, 0.0
+    if P >= 2.0 / (1.0 + R + eta) - 1e-4:
+        return lmtd, 0.0, dict(dtb=dtb, dtm=dtm, P=P, R=R)
     dlt = (1.0 - P)/P if abs(R - 1.0) < 1e-5 else (R - 1.0)/math.log((1.0 - P)/(1.0 - R*P))
     den = math.log((2.0 - P * (1.0 + R - eta)) / (2.0 - P * (1.0 + R + eta)))
-    return lmtd, max(0.0, min(1.0, (eta / dlt) / den if den > 0 else 0.0))
+    ft = max(0.0, min(1.0, (eta / dlt) / den if den > 0 else 0.0))
+    return lmtd, ft, dict(dtb=dtb, dtm=dtm, P=P, R=R)
 
 def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
     if p["hot_side"] == "tube":
@@ -27,7 +30,10 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
         Gt, tti, tto, rhot, cpt, mut, kt, rft = G2, t2i, t2o, p["rho2"], p["cp2"], p["mu2"], p["k2"], p["rf2"]
         fls, flt, ps_op, pt_op, cs, ct = p.get("fl1",""), p.get("fl2",""), p.get("pop1",0.6), p.get("pop2",0.6), p.get("c1",30), p.get("c2",30)
 
+    dyt_eff = int(p["dy_tube"]) if p.get("dy_tube") else u["dyt"]
+    dys_eff = int(p["dy_shell"]) if p.get("dy_shell") else u["dys"]
     dout, din, L, z = u["dt"] / 1000.0, (u["dt"] - 2 * u["w"]) / 1000.0, u["L"], u["z"]
+
     wt = Gt / (rhot * u["At"])
     Ret, Prt = rhot * wt * din / mut, cpt * mut / kt
     if Ret >= 2300:
@@ -36,18 +42,23 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
     else:
         gz = Ret * Prt * (din / L)
         Nut0, lf = (1.61 * (gz ** (1.0 / 3.0)) if gz > 12 else 3.66), 64.0 / max(Ret, 1.0)
-    wtn = 4.0 * Gt / (math.pi * (u["dyt"] / 1000.0) ** 2 * rhot)
-    dpt = (lf*(L*z/din) + 2.5*(z-1) + 2.0*z)*(rhot*wt**2/2.0) + 3.0*(rhot*wtn**2/2.0)
+    wtn = 4.0 * Gt / (math.pi * (dyt_eff / 1000.0) ** 2 * rhot)
+    dpt_tr = lf * (L * z / din) * (rhot * wt ** 2 / 2.0)
+    dpt_loc = (2.5 * (z - 1) + 2.0 * z) * (rhot * wt ** 2 / 2.0)
+    dpt_noz = 3.0 * (rhot * wtn ** 2 / 2.0)
+    dpt = dpt_tr + dpt_loc + dpt_noz
 
     ws = Gs / (rhos * u["Ac"])
     Res, Prs = rhos * ws * dout / mus, cps * mus / ks
-    wsn = 4.0 * Gs / (math.pi * (u["dys"] / 1000.0) ** 2 * rhos)
+    wsn = 4.0 * Gs / (math.pi * (dys_eff / 1000.0) ** 2 * rhos)
     mr = u["nr"] if p["use_tu_rows"] else math.ceil(math.sqrt((u["N"] - 1)/3.0 + 0.25))
-    bd_frac = dict(A=0.0, B=1.0, C=0.0, E=0.0, F=0.0)
 
     if p["method"] == "dytnerskiy":
         Nus0 = 0.24*(Res**0.6)*(Prs**0.36) if Res >= 1000 else 0.34*(Res**0.5)*(Prs**0.36)
-        dps = (3.0*mr*(u["nb"]+1)/(max(Res,10.0)**0.2))*(rhos*ws**2/2.0) + 1.5*u["nb"]*(rhos*ws**2/2.0) + 3.0*(rhos*wsn**2/2.0)
+        dps_bun = (3.0*mr*(u["nb"]+1)/(max(Res,10.0)**0.2))*(rhos*ws**2/2.0)
+        dps_baf = 1.5*u["nb"]*(rhos*ws**2/2.0)
+        dps_noz = 3.0*(rhos*wsn**2/2.0)
+        dps = dps_bun + dps_baf + dps_noz
     else:
         Nus0 = 0.27 * (Res ** 0.63) * (Prs ** 0.36)
         rlm, rs, Jc, Js = 0.18, 0.35, 1.02, 0.92
@@ -60,11 +71,11 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
         Rl, Rb = math.exp(-1.33 * (1.0 + rs) * (rlm ** 0.8)), math.exp(-3.7 * Fbp)
         ww = Gs / (rhos * math.sqrt(u["Ac"] * u["Aw"]))
         dpw = (2.0 + 0.6 * mr) * (rhos * ww ** 2 / 2.0) * Rl
-        dps = ((u["nb"]-1)*dpbi*Rb*Rl + u["nb"]*dpw + 2.0*dpbi*Rb*0.92) + 3.0*(rhos*wsn**2/2.0)
-        bd_frac = dict(A=0.04, B=round(1.0 - Fbp - 0.18, 3), C=0.06, E=0.08, F=round(Fbp, 3))
-
+        dps_bun, dps_baf, dps_noz = (u["nb"]-1)*dpbi*Rb*Rl, u["nb"]*dpw + 2.0*dpbi*Rb*0.92, 3.0*(rhos*wsn**2/2.0)
+        dps = dps_bun + dps_baf + dps_noz
     at, as_ = Nut0 * kt / din, Nus0 * ks / dout
     _, k_wall, _ = MATERIALS.get(p["mat"], ("", 45.0, 1.0))
+    phi_t, phi_s, tw_t, tw_s = 1.0, 1.0, 0.5*(tti+tto), 0.5*(tsi+tso)
 
     if p.get("use_visc_corr") and flt and fls and not flt.startswith("0") and not fls.startswith("0"):
         K0 = 1.0 / (1.0 / as_ + (u["w"] / 1000.0) / k_wall + rft + rfs + (1.0 / at) * (dout / din))
@@ -73,17 +84,25 @@ def calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o):
         tw_t = tm_t - q_fl / at if tm_t > tm_s else tm_t + q_fl / at
         tw_s = tm_s + q_fl / as_ if tm_t > tm_s else tm_s - q_fl / as_
         pwt, pws = get_props(flt, tw_t, pt_op, ct), get_props(fls, tw_s, ps_op, cs)
-        at *= max(0.6, min(1.4, (Prt / (pwt["cp"] * pwt["mu"] / pwt["k"])) ** 0.25))
-        as_ *= max(0.6, min(1.4, (Prs / (pws["cp"] * pws["mu"] / pws["k"])) ** 0.25))
+        phi_t = max(0.6, min(1.4, (Prt / (pwt["cp"] * pwt["mu"] / pwt["k"])) ** 0.25))
+        phi_s = max(0.6, min(1.4, (Prs / (pws["cp"] * pws["mu"] / pws["k"])) ** 0.25))
+        at *= phi_t
+        as_ *= phi_s
 
     rs_th, rt_th, rm_th, rf_th = 1.0 / as_, (1.0 / at) * (dout / din), (u["w"] / 1000.0) / k_wall, rft + rfs
     R_tot = rs_th + rt_th + rm_th + rf_th
     K = 1.0 / R_tot
-    K_clean = 1.0 / (rs_th + rt_th + rm_th)
+    steps = dict(
+        din=din, dout=dout, wtn=wtn, wsn=wsn, Ret=Ret, Prt=Prt, Nut0=Nut0, lf=lf, phi_t=phi_t,
+        dpt_tr=dpt_tr, dpt_loc=dpt_loc, dpt_noz=dpt_noz,
+        Res=Res, Prs=Prs, Nus0=Nus0, mr=mr, phi_s=phi_s,
+        dps_bun=dps_bun, dps_baf=dps_baf, dps_noz=dps_noz,
+        k_wall=k_wall, rs_th=rs_th, rt_th=rt_th, rm_th=rm_th, rf_th=rf_th, R_tot=R_tot, tw_t=tw_t, tw_s=tw_s
+    )
     extra = dict(
-        K_clean=round(K_clean, 1), r_pct=dict(s=round(rs_th/R_tot*100,1), t=round(rt_th/R_tot*100,1), f=round(rf_th/R_tot*100,1), m=round(rm_th/R_tot*100,1)),
-        rv2_t=round(rhot * wtn**2, 1), rv2_s=round(rhos * wsn**2, 1), bd=bd_frac,
-        Gt=round(Gt, 3), Gs=round(Gs, 3), rhot=rhot, rhos=rhos, cpt=cpt, cps=cps, mut=mut, mus=mus, kt=kt, ks=ks, rft=rft, rfs=rfs
+        K_clean=round(1.0 / (rs_th + rt_th + rm_th), 1), dys_eff=dys_eff, dyt_eff=dyt_eff,
+        Gt=round(Gt, 3), Gs=round(Gs, 3), rhot=rhot, rhos=rhos, cpt=cpt, cps=cps, mut=mut, mus=mus, kt=kt, ks=ks, rft=rft, rfs=rfs,
+        steps=steps
     )
     return K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso, extra
 
@@ -96,13 +115,14 @@ def solve_unit(u, p, bal, rating_mode=False):
     Py = next(iter(valid_pys)) if valid_pys else max(u["pys"])
 
     Q = bal["Q_kw"] * 1000.0
-    lmtd, ft = lmtd_ft(bal["t1_in"], bal["t1_out"], bal["t2_in"], bal["t2_out"], u["z"], flow)
+    lmtd, ft, dt_info = lmtd_ft(bal["t1_in"], bal["t1_out"], bal["t2_in"], bal["t2_out"], u["z"], flow)
     if ft < 0.75 and not rating_mode: return None
     ft = max(ft, 0.5)
 
     K, at, as_, wt, ws, dpt, dps, tti, tto, tsi, tso, extra = calc_hydraulics_and_k(
         u, p, bal["G1"], bal["t1_in"], bal["t1_out"], bal["G2"], bal["t2_in"], bal["t2_out"]
     )
+    extra["steps"].update(lmtd=lmtd, ft=ft, **dt_info)
     Freq = Q / (K * lmtd * ft)
     mrg = (u["F"] - Freq) / Freq * 100.0
 
@@ -156,7 +176,7 @@ def simulate_unit(u, p):
 
     for _ in range(15):
         K, at, as_, wt, ws, dpt, dps, _, _, _, _, _ = calc_hydraulics_and_k(u, p, G1, t1i, t1o, G2, t2i, t2o)
-        _, ft = lmtd_ft(t1i, t1o, t2i, t2o, u["z"], flow)
+        _, ft, _ = lmtd_ft(t1i, t1o, t2i, t2o, u["z"], flow)
         ft = max(ft, 0.6)
         ntu = (K * u["F"] * ft) / Cmin
         if flow == "co": eps = (1.0 - math.exp(-ntu * (1.0 + Cr))) / (1.0 + Cr)
